@@ -221,7 +221,6 @@ int main(int argc, char **argv) {
             }
             SDL_UpdateWindowSurface(window);
             needs_update = false;
-
         }
 
         SDL_Event event;
