@@ -1,3 +1,4 @@
 ppm-efx
 *.o
 .DS_Store
+.vscode
