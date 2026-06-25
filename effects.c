@@ -126,22 +126,24 @@ void dither(Uint8 *framebuffer, size_t framebuffer_size, int width, int height, 
 
 void shift(int *r, int *g, int *b, int color_shift) {
    Uint8 rb = *r;
+   Uint8 gb = *g;
+   Uint8 bb = *b;
    
    if(color_shift == 1) {
-       *r = *b;
+       *r = bb;
        *g = rb;
-       *b = *g;
+       *b = gb;
    }
    else if(color_shift == 2) {
-       *r = *g;
-       *g = *b;
+       *r = gb;
+       *g = bb;
        *b = rb;
    }
 }
 
 void exposure(int *r, int *g, int *b, float exposure_val) {
-    *r = clamp(*r * exposure_val, 100, 255);
-    *g = clamp(*g * exposure_val, 100, 255);
-    *b = clamp(*b * exposure_val, 100, 255);
+    *r = clamp(*r * exposure_val, 0, 255);
+    *g = clamp(*g * exposure_val, 0, 255);
+    *b = clamp(*b * exposure_val, 0, 255);
 }
 
