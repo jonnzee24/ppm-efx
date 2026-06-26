@@ -72,8 +72,8 @@ void monochrome(int *r, int *g, int *b, bool do_threshold, int threshold) {
 }
 
 void quantize(int *r, int *g, int *b, int bit_depth) {
-    int divisor = pow(2, 8 - bit_depth);
-    int maximum_value = pow(2, bit_depth) - 1;
+    int divisor = 1 << (8 - bit_depth);
+    int maximum_value = (1 << bit_depth) - 1;
 
     *r = (*r / divisor) * 255 / maximum_value;
     *g = (*g / divisor) * 255 / maximum_value;
@@ -100,9 +100,9 @@ void dither(Uint8 *framebuffer, size_t framebuffer_size, int width, int height, 
 
             monochrome(&qp_r, &qp_g, &qp_b, true, thresh);
 
-            framebuffer[pixel_pos    ] = (Uint32)qp_r;
-            framebuffer[pixel_pos + 1] = (Uint32)qp_g;
-            framebuffer[pixel_pos + 2] = (Uint32)qp_b;
+            framebuffer[pixel_pos    ] = qp_r;
+            framebuffer[pixel_pos + 1] = qp_g;
+            framebuffer[pixel_pos + 2] = qp_b;
 
             int error_r = op_r - qp_r;
             int error_g = op_g - qp_g;
@@ -156,3 +156,33 @@ void exposure(int *r, int *g, int *b, float exposure_val) {
     *b = clamp(*b * exposure_val, 0, 255);
 }
 
+void contrast(int *r, int *g, int *b, int contrast_val) {
+    int pixel_val = (*r + *g + *b) / 3;
+
+    if(pixel_val <= 100) {
+        *r = clamp(*r - contrast_val, 0, 255);
+        *g = clamp(*g - contrast_val, 0, 255);
+        *b = clamp(*b - contrast_val, 0, 255);
+    } else if(pixel_val > 140) {
+        *r = clamp(*r + contrast_val, 0, 255);
+        *g = clamp(*g + contrast_val, 0, 255);
+        *b = clamp(*b + contrast_val, 0, 255);
+    }
+}
+
+void colorb(int *r, int *g, int *b, int color_bias) {
+    if(color_bias == 0) {
+        *g = *g / 3;
+        *b = *b / 3;
+    } else if(color_bias == 1) {
+        *r = *r / 3;
+        *b = *b / 3;
+    } else if(color_bias == 2) {
+        *r = *r / 3;
+        *g = *g / 3;
+    }
+}
+
+void blur(Uint8 *framebuffer, int width, int height) {
+    // Implement gaussian blur when i know how
+}

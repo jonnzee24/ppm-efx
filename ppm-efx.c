@@ -39,6 +39,11 @@ bool do_quantization = false;
 bool do_dither = false;
 bool do_shift = false;
 bool do_exposure = false;
+bool do_contrast = false;
+bool do_color = false;
+bool do_blur = false;
+
+bool play_audio = false;
 
 // Initial values
 int bit_depth = 4;
@@ -49,6 +54,8 @@ int mono_thresh = 140;
 int warp_mode = 1;
 float color_shift = 0.4;
 float exposure_val = 1.5;
+int contrast_val = 30;
+int color_bias = 0; // 0 = R, G = 1, 2 = B
 
 int main(int argc, char **argv) {
     FILE *image_file = NULL;
@@ -160,7 +167,7 @@ int main(int argc, char **argv) {
     memcpy(original, framebuffer, framebuffer_size);
    
     // Initialize SDL
-    if(SDL_Init(SDL_INIT_VIDEO) != 0) {
+    if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
         perror("SDL failed to initialize");
         goto exit;
     }
@@ -170,6 +177,22 @@ int main(int argc, char **argv) {
 
     surface = SDL_GetWindowSurface(window);
     SDL_Rect pixel = (SDL_Rect){0, 0, 1, 1};
+
+    SDL_AudioSpec desired = {
+        .freq = 44100,
+        .format = AUDIO_U8,
+        .channels = 1,
+        .samples = 4096,
+        .callback = NULL,
+        .userdata = NULL
+    };
+    SDL_AudioSpec obtained;
+    SDL_AudioDeviceID device = SDL_OpenAudioDevice(NULL, 0, &desired, &obtained, 0);
+    if(device == 0) {
+        printf("Failed to create SDL audio device\n");
+        goto exit;
+    }
+    SDL_PauseAudioDevice(device, 0);
 
     // SDL event loop
     int app_running = 1;
@@ -182,6 +205,8 @@ int main(int argc, char **argv) {
             dither_thresh = clamp(dither_thresh, 0, 255);
             mono_thresh = clamp(mono_thresh, 0, 255);
             color_shift = clampf(color_shift, 0.0, 1.0);
+            contrast_val = clamp(contrast_val, 0, 100);
+            color_bias = clamp(color_bias, 0, 2);
             
             // EFX
             for (int y = 0; y < height; y++) {
@@ -192,11 +217,13 @@ int main(int argc, char **argv) {
                     g = framebuffer[pixel_pos + 1];
                     b = framebuffer[pixel_pos + 2];
 
-                    if(do_invert) { invert(&r, &g, &b); }
-                    if (do_monochrome) { monochrome(&r, &g, &b, mono_do_thresh, mono_thresh); }
+                    if(do_invert)       { invert(&r, &g, &b); }
+                    if(do_monochrome)   { monochrome(&r, &g, &b, mono_do_thresh, mono_thresh); }
                     if(do_quantization) { quantize(&r, &g, &b, bit_depth); }
-                    if(do_shift) { shift(&r, &g, &b, color_shift); }
-                    if(do_exposure) {exposure(&r, &g, &b, exposure_val); }
+                    if(do_exposure)     { exposure(&r, &g, &b, exposure_val); }
+                    if(do_contrast)     { contrast(&r, &g, &b, contrast_val); }
+                    if(do_color)        { colorb(&r, &g, &b, color_bias); }
+                    if(do_shift)        { shift(&r, &g, &b, color_shift); }
 
                     framebuffer[pixel_pos    ] = (Uint8)r;
                     framebuffer[pixel_pos + 1] = (Uint8)g;
@@ -212,6 +239,10 @@ int main(int argc, char **argv) {
                 warp(framebuffer, width, height, warp_mode);
             }
 
+            if(do_blur) {
+                blur(framebuffer, width, height);
+            }
+
             // Rendering framebuffer on SDL window surface
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
@@ -224,6 +255,12 @@ int main(int argc, char **argv) {
                     SDL_FillRect(surface, &pixel, color);
                 }
             }
+
+            SDL_ClearQueuedAudio(device);
+            if(play_audio) {
+                SDL_QueueAudio(device, framebuffer, framebuffer_size);
+            }
+
             SDL_UpdateWindowSurface(window);
             needs_update = false;
         }
@@ -239,6 +276,9 @@ int main(int argc, char **argv) {
                     needs_update = true;
 
                     switch(event.key.keysym.sym) {
+                        case SDLK_p:
+                            play_audio = !play_audio;
+                            break;
                         case SDLK_d:
                             do_dither = !do_dither;
                             mode = 1;
@@ -265,15 +305,22 @@ int main(int argc, char **argv) {
                         case SDLK_e:
                             do_exposure = !do_exposure;
                             mode = 6;
-                        }
-
+                            break;
+                        case SDLK_c:
+                            do_contrast = !do_contrast;
+                            mode = 7;
+                            break;
+                        case SDLK_x:
+                            do_color = !do_color;
+                            mode = 8;
+                    }
                         if(mode == 1) {
                             switch(event.key.keysym.sym) {
                                 case SDLK_UP:
-                                    dither_brightness += 1.0;
+                                    dither_brightness += 0.1;
                                     break;
                                 case SDLK_DOWN:
-                                    dither_brightness -= 1.0;
+                                    dither_brightness -= 0.1;
                                 }
                             }
                         else if(mode == 2) {
@@ -297,10 +344,10 @@ int main(int argc, char **argv) {
                                     mono_do_thresh = !mono_do_thresh;
                                     break;
                                 case SDLK_UP:
-                                    mono_thresh += 5;
+                                    mono_thresh += 10;
                                     break;
                                 case SDLK_DOWN:
-                                    mono_thresh -= 5;
+                                    mono_thresh -= 10;
                                 }
                             }
                         else if(mode == 4) {
@@ -330,6 +377,27 @@ int main(int argc, char **argv) {
                                     exposure_val -= 0.25;
                             }
                         }
+                        else if(mode == 7) {
+                            switch(event.key.keysym.sym) {
+                                case SDLK_UP:
+                                    contrast_val += 5;
+                                    break;
+                                case SDLK_DOWN:
+                                    contrast_val -= 5;
+                            }
+                        }
+                        else if(mode == 8) {
+                            switch(event.key.keysym.sym) {
+                                case SDLK_r:
+                                    color_bias = 0;
+                                    break;
+                                case SDLK_g:
+                                    color_bias = 1;
+                                    break;
+                                case SDLK_b:
+                                    color_bias = 2;
+                            }
+                        }
             }
         }
         SDL_Delay(10);
@@ -356,7 +424,7 @@ exit:
             free(ppm_path);
         }
     }
-    
+
     free(original);
     free(framebuffer);
     return 0;
