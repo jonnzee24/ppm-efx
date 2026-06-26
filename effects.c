@@ -20,8 +20,18 @@ void warp(Uint8 *framebuffer, int width, int height, int option) {
                 x_pos = width - x;
                 y_pos = y;
             }
+
+            if(y > height / 2 && option == 2) {
+                x_pos = x;
+                y_pos = height - y;
+            }
  
-            if(x % 2 == 0 && option == 2) {
+            if(x % 2 == 0 && option == 3) {
+                x_pos = x - x / 6;
+                y_pos = y - y / 6;
+            }
+
+            if(y % 2 == 0 && option == 4) {
                 x_pos = x - x / 6;
                 y_pos = y - y / 6;
             }
@@ -124,21 +134,20 @@ void dither(Uint8 *framebuffer, size_t framebuffer_size, int width, int height, 
     }
 }
 
-void shift(int *r, int *g, int *b, int color_shift) {
-   Uint8 rb = *r;
-   Uint8 gb = *g;
-   Uint8 bb = *b;
-   
-   if(color_shift == 1) {
-       *r = bb;
-       *g = rb;
-       *b = gb;
-   }
-   else if(color_shift == 2) {
-       *r = gb;
-       *g = bb;
-       *b = rb;
-   }
+void shift(int *r, int *g, int *b, float color_shift) {
+    Uint8 rb = *r;
+    Uint8 gb = *g;
+    Uint8 bb = *b;
+
+    if(color_shift <= 0.5) {
+        *r = (color_shift * bb) + (1 - color_shift) * rb;
+        *g = (color_shift * rb) + (1 - color_shift) * gb;
+        *b = (color_shift * gb) + (1 - color_shift) * bb;
+    } else if(color_shift > 0.5) {
+        *r = (color_shift * gb) + (1 - color_shift) * rb;
+        *g = (color_shift * bb) + (1 - color_shift) * gb;
+        *b = (color_shift * rb) + (1 - color_shift) * bb;
+    }
 }
 
 void exposure(int *r, int *g, int *b, float exposure_val) {

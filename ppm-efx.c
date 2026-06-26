@@ -46,8 +46,8 @@ float dither_brightness = 0.8;
 int dither_thresh = 120;
 bool mono_do_thresh = false;
 int mono_thresh = 140;
-int warp_mode = 2;
-int color_shift = 1;
+int warp_mode = 1;
+float color_shift = 0.4;
 float exposure_val = 1.5;
 
 int main(int argc, char **argv) {
@@ -60,11 +60,15 @@ int main(int argc, char **argv) {
     SDL_Surface *surface = NULL;
 
     int do_output = 0;
+    int output_format = 0;
+    // 0 = .ppm
+    // 1 = .png
+
     int mode = 0;
     bool needs_update = true;
 
     if(argc > 4 || argc < 2) {
-        printf("Please specify the path to a .ppm image and optionally -s <output_file.png> to save the file as a .png.\n");
+        printf("Please specify the path to a .ppm image and optionally -s <output_file.png/.ppm> to save the file.\n");
         goto exit;
     }
 
@@ -92,22 +96,28 @@ int main(int argc, char **argv) {
     fgets(temp, sizeof(temp), image_file);
 
     // Create and open output file if -s flag is set
-    char *temp_ppm_path = NULL;
-    char *final_png_path = NULL;
+    char *ppm_path = NULL;
+    char *png_path = NULL;
 
     if (argc == 4 && strcmp(argv[2], "-s") == 0) {
-        final_png_path = argv[3];
+        if(strstr(argv[3], ".png") != NULL) {
+            png_path = argv[3];
+            ppm_path = malloc(strlen(png_path) + 5);
+            if(ppm_path == NULL) {
+                perror("Failed to allocate memory for ppm_path.");
+                goto exit;
+            }
 
-        temp_ppm_path = malloc(strlen(final_png_path) + 5);
-        if(temp_ppm_path == NULL) {
-            perror("Memory allocation failed");
-            goto exit;
+            strcpy(ppm_path, png_path);
+            strcat(ppm_path, ".ppm");
+
+            output_file = fopen(ppm_path, "wb");
+            output_format = 1;
+        } else {
+            ppm_path = argv[3];
+            output_file = fopen(ppm_path, "wb");
         }
-
-        strcpy(temp_ppm_path, final_png_path);
-        strcat(temp_ppm_path, ".ppm");
-
-        output_file = fopen(temp_ppm_path, "wb");
+        
         if(output_file == NULL) {
             perror("Failed to create the output file");
             goto exit;
@@ -171,7 +181,7 @@ int main(int argc, char **argv) {
             dither_brightness = clampf(dither_brightness, 0.0, 1.0);
             dither_thresh = clamp(dither_thresh, 0, 255);
             mono_thresh = clamp(mono_thresh, 0, 255);
-            color_shift = clamp(color_shift, 1, 2);
+            color_shift = clampf(color_shift, 0.0, 1.0);
             
             // EFX
             for (int y = 0; y < height; y++) {
@@ -195,15 +205,10 @@ int main(int argc, char **argv) {
             }
 
             if (do_dither) {
-                // The second to last paramter is the threshold (0-255)
-                // The last paramter is brightness (0.0-1.0)
                 dither(framebuffer, framebuffer_size, width, height, dither_thresh, dither_brightness);
             }
 
             if(do_warp) {
-                // DIFFERENT EFX
-                // 1 = tear
-                // 2 = normal mirror 
                 warp(framebuffer, width, height, warp_mode);
             }
 
@@ -265,10 +270,10 @@ int main(int argc, char **argv) {
                         if(mode == 1) {
                             switch(event.key.keysym.sym) {
                                 case SDLK_UP:
-                                    dither_brightness += 0.1;
+                                    dither_brightness += 1.0;
                                     break;
                                 case SDLK_DOWN:
-                                    dither_brightness -= 0.1;
+                                    dither_brightness -= 1.0;
                                 }
                             }
                         else if(mode == 2) {
@@ -278,6 +283,12 @@ int main(int argc, char **argv) {
                                     break;
                                 case SDLK_2:
                                     warp_mode = 2;
+                                    break;
+                                case SDLK_3:
+                                    warp_mode = 3;
+                                    break;
+                                case SDLK_4:
+                                    warp_mode = 4;
                                 }
                             }
                         else if(mode == 3) {
@@ -304,10 +315,10 @@ int main(int argc, char **argv) {
                         else if(mode == 5) {
                             switch(event.key.keysym.sym) {
                                 case SDLK_UP:
-                                    color_shift += 1;
+                                    color_shift += 0.1;
                                     break;
                                 case SDLK_DOWN:
-                                    color_shift -= 1;
+                                    color_shift -= 0.1;
                             }
                         }
                         else if(mode == 6) {
@@ -333,11 +344,17 @@ exit:
 
     if(do_output) {
         fwrite(framebuffer, sizeof(Uint8), framebuffer_size, output_file);
+        fclose(output_file);
 
-        if(output_file != NULL) { fclose(output_file); }
+        if(output_file != NULL && output_format == 0) { 
+            
+            printf("File saved sucessfully at %s!\n", ppm_path);
+        }
 
-        convert_to_png(temp_ppm_path, final_png_path);
-        free(temp_ppm_path);
+        if(output_file != NULL && output_format == 1) {
+            convert_to_png(ppm_path, png_path);
+            free(ppm_path);
+        }
     }
     
     free(original);

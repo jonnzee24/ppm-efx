@@ -1,1 +1,5 @@
-1. MORE EFFECTS!!!
+1. Fix color shift. [DONE]
+
+2. Make it so you can export to .ppm or .png depending on what you specify the output file as.
+
+3. MORE EFFECTS!!!
