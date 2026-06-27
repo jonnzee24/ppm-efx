@@ -170,6 +170,14 @@ void contrast(int *r, int *g, int *b, int contrast_val) {
     }
 }
 
+void saturation(int *r, int *g, int *b, float saturation_val) {
+    int gray = (*r + *g + *b) / 3;
+
+    *r = clamp(gray + (int)((*r - gray) * saturation_val), 0, 255);
+    *g = clamp(gray + (int)((*g - gray) * saturation_val), 0, 255);
+    *b = clamp(gray + (int)((*b - gray) * saturation_val), 0, 255);
+}
+
 void colorb(int *r, int *g, int *b, int color_bias) {
     if(color_bias == 0) {
         *g = *g / 3;
