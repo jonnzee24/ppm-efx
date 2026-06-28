@@ -5,6 +5,8 @@
 #define DARK_RED (SDL_Color){100, 0, 0, 255}
 #define DARK_GREEN (SDL_Color){0, 100, 0, 255}
 
+#define HUD_WIDTH 300
+
 static TTF_Font *font = NULL;
 
 int init_gui(void) {

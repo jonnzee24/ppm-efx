@@ -4,6 +4,8 @@
 #include "effects.h"
 #include <SDL2/SDL_ttf.h>
 
+#define HUD_WIDTH 300
+
 int init_gui(void);
 void cleanup_gui(void);
 

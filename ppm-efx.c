@@ -152,8 +152,11 @@ int main(int argc, char **argv) {
     if(gui != 0) {
         goto exit;
     }
-
-    SDL_Window *window = SDL_CreateWindow("PPM EFX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width + 300, height, 0);
+    
+    int window_width = width + HUD_WIDTH;
+    int window_height = height;
+    SDL_Window *window = SDL_CreateWindow("PPM EFX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                         window_width, window_height, SDL_WINDOW_RESIZABLE);
     if(window == NULL){
         fprintf(stderr, "Failed to create SDL window: %s\n", SDL_GetError());
         goto exit;
@@ -170,7 +173,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Failed to create SDL texture: %s\n", SDL_GetError());
         goto exit;
     }
-    SDL_Rect texture_rect = {0, 0, width, height};
+    SDL_Rect texture_rect;
 
     EffectFlags effects = {
         .warp = false,
@@ -204,7 +207,10 @@ int main(int argc, char **argv) {
     // SDL event loop
     int app_running = 1;
     while(app_running) {
+        
+        // Apply effects if the image needs to be updated
         if(needs_update) {
+            needs_update = false;
             memcpy(framebuffer, original, framebuffer_size);
 
             // EFX setup
@@ -251,17 +257,21 @@ int main(int argc, char **argv) {
                 }
             }
 
-            // Rendering the framebuffer
-            SDL_RenderClear(renderer);
-            SDL_UpdateTexture(texture, NULL, framebuffer, width * 3);
-            SDL_RenderCopy(renderer, texture, NULL, &texture_rect);
-            
-            draw_hud(renderer, width + 30, 0, effects, params, mode);
-
-            SDL_RenderPresent(renderer);
-
-            needs_update = false;
         }
+
+        // Rendering the framebuffer
+        SDL_RenderClear(renderer);
+        SDL_GetWindowSize(window, &window_width, &window_height);
+        SDL_SetWindowSize(window, window_height + HUD_WIDTH, window_height);
+
+        texture_rect.w = window_width - HUD_WIDTH;
+        texture_rect.h = window_height;
+        SDL_UpdateTexture(texture, NULL, framebuffer, width * 3);
+
+        SDL_RenderCopy(renderer, texture, NULL, &texture_rect);
+        draw_hud(renderer, window_width - (HUD_WIDTH - 20), 0, effects, params, mode);
+
+        SDL_RenderPresent(renderer);
 
         SDL_Event event;
         while(SDL_PollEvent(&event) != 0) {
