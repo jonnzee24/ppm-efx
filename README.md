@@ -5,7 +5,7 @@ USAGE
    
 2. If you want to save the result use the "-s" flag followed by the path to the output file.
    The output format can be in .png, but it depends on imagemagick to do the conversion.
-   If you dont have imagemagick installed, save the output as .ppm
+   If you dont have imagemagick installed, save the output as .ppm.
 
 FULL COMMAND EXAMPLE
 
