@@ -10,8 +10,6 @@ float clampf(float value, float min, float max) {
     return t > max ? max : t;
 }
 
-
-
 void warp(Uint8 *framebuffer, int width, int height, int option) {
     for(int y = 0; y < height; y++) {
         for(int x = 0; x < width; x++) {
@@ -82,7 +80,7 @@ void quantize(int *r, int *g, int *b, int bit_depth) {
     *b = (*b / divisor) * 255 / maximum_value;
 }
 
-void dither(Uint8 *framebuffer, size_t framebuffer_size, int width, int height, int thresh, float brightness) {
+void dither(Uint8 *framebuffer, size_t framebuffer_size, int width, int height, float brightness) {
     for(int y = 0; y < height; y++) {
         for(int x = 0; x < width; x++) {
             int pixel_pos = (y * width + x) * 3;
@@ -100,7 +98,7 @@ void dither(Uint8 *framebuffer, size_t framebuffer_size, int width, int height, 
             int qp_g = op_g;
             int qp_b = op_b;
 
-            monochrome(&qp_r, &qp_g, &qp_b, true, thresh);
+            monochrome(&qp_r, &qp_g, &qp_b, true, 120);
 
             framebuffer[pixel_pos    ] = qp_r;
             framebuffer[pixel_pos + 1] = qp_g;

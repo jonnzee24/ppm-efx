@@ -12,7 +12,7 @@ int init_gui(void) {
         fprintf(stderr, "Failed to initialize SDL2_TTF%s\n", SDL_GetError());
         return 1;
     }
-    font = TTF_OpenFont("Comme-Regular.ttf", 25);
+    font = TTF_OpenFont("Comme-Regular.ttf", 20);
 
     if(font == NULL) {
         fprintf(stderr, "Failed to open TTF font%s\n", SDL_GetError());
@@ -42,31 +42,60 @@ void draw_hud(SDL_Renderer *renderer, int x_pos, int y_pos,
               EffectFlags effects, EffectParams params, int mode) {
 
     char buffer[64];
-    int line_spacing = 40;
+    int line_spacing = 30;
     int y_offset = line_spacing;
     SDL_Color color;
 
-    #define DRAW_EFX_FLAG(name, flag) \
+    #define DRAW_EFX_FLAG(name, flag, efx_mode) \
         snprintf(buffer, sizeof(buffer), "%s: %s", name, (flag) ? "on" : "off"); \
         color = (flag) ? DARK_GREEN : GRAY; \
+        color = (efx_mode == mode) ? WHITE : color; \
         draw_text(renderer, x_pos, y_pos + y_offset, color, buffer); \
         y_offset += line_spacing;
     
-    draw_text(renderer, x_pos, y_pos, DARK_RED, "EFFECTS");
-
-    DRAW_EFX_FLAG("Warp", effects.warp);
-    DRAW_EFX_FLAG("Invert", effects.invert);
-    DRAW_EFX_FLAG("Mono", effects.mono);
-    DRAW_EFX_FLAG("Quantize", effects.quantize);
-    DRAW_EFX_FLAG("Dithering", effects.dither);
-    DRAW_EFX_FLAG("Shift", effects.shift);
-    DRAW_EFX_FLAG("Exposure", effects.exposure);
-    DRAW_EFX_FLAG("Contrast", effects.contrast);
-    DRAW_EFX_FLAG("Saturation", effects.saturation);
-    DRAW_EFX_FLAG("Color", effects.color);
-    DRAW_EFX_FLAG("Blur", effects.blur);
+    y_offset += line_spacing;
+    draw_text(renderer, x_pos, y_offset, DARK_RED, "EFFECTS");
+    y_offset += line_spacing;
+    
+    // The last parameter is its corresponding mode in ppm-efx.c
+    // I use it to change the color of the text if its mode is on
+    // For effects that dont have a mode i just put 100 lol
+    DRAW_EFX_FLAG("[W] Warp", effects.warp, 2);
+    DRAW_EFX_FLAG("[Q] Quantize", effects.quantize, 4);
+    DRAW_EFX_FLAG("[M] Mono", effects.mono, 3);
+    DRAW_EFX_FLAG("[I] Invert", effects.invert, 100);
+    DRAW_EFX_FLAG("[D] Dithering", effects.dither, 1);
+    DRAW_EFX_FLAG("[E] Exposure", effects.exposure, 6);
+    DRAW_EFX_FLAG("[C] Contrast", effects.contrast, 7);
+    DRAW_EFX_FLAG("[S] Saturation", effects.saturation, 9);
+    DRAW_EFX_FLAG("[Z] Color Shift", effects.shift, 5);
+    DRAW_EFX_FLAG("[C] Color Bias", effects.color, 8);
+    DRAW_EFX_FLAG("[B] Blur", effects.blur, 100);
 
     #undef DRAW_EFX_FLAG
+
+    #define DRAW_EFX_PARAM(name, value, efx_mode) \
+    snprintf(buffer, sizeof(buffer), "%s: %.2f", name, (float)value); \
+    color = (efx_mode == mode) ? WHITE : GRAY; \
+    draw_text(renderer, x_pos, y_pos + y_offset, color, buffer); \
+    y_offset += line_spacing;
+    
+    y_offset += line_spacing;
+    draw_text(renderer, x_pos, y_offset, DARK_RED, "PARAMETERS");
+    y_offset += line_spacing;
+   
+    DRAW_EFX_PARAM("Bit Depth", params.bit_depth, 4);
+    DRAW_EFX_PARAM("Warp Mode", params.warp_mode, 2);
+    DRAW_EFX_PARAM("Mono Do Threshold", params.mono_do_thresh, 3);
+    DRAW_EFX_PARAM("Mono Threshold", params.mono_thresh, 3);
+    DRAW_EFX_PARAM("Dither Bightness", params.dither_brightness, 1);
+    DRAW_EFX_PARAM("Exposure Value", params.exposure_val, 6);
+    DRAW_EFX_PARAM("Contrast Value", params.contrast_val, 7);
+    DRAW_EFX_PARAM("Saturation Value", params.saturation_val, 9);
+    DRAW_EFX_PARAM("Color Shift", params.color_shift, 5);
+    DRAW_EFX_PARAM("Color Bias", params.color_bias, 8);
+
+    #undef DRAW_EFX_PARAM
 }
 
 void cleanup_gui(void) {

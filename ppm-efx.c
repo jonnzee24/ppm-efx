@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
         goto exit;
     }
 
-    SDL_Window *window = SDL_CreateWindow("PPM EFX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width + 200, height, 0);
+    SDL_Window *window = SDL_CreateWindow("PPM EFX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width + 300, height, 0);
     if(window == NULL){
         fprintf(stderr, "Failed to create SDL window: %s\n", SDL_GetError());
         goto exit;
@@ -189,7 +189,6 @@ int main(int argc, char **argv) {
     EffectParams params = {
         .bit_depth = 4,
         .dither_brightness = 0.8,
-        .dither_thresh = 120,
         .mono_do_thresh = false,
         .mono_thresh = 140,
         .warp_mode = 1,
@@ -210,19 +209,17 @@ int main(int argc, char **argv) {
             memcpy(framebuffer, original, framebuffer_size);
 
             // EFX setup
-            params.bit_depth = clamp(params.bit_depth, 1, 24);
+            params.bit_depth = clamp(params.bit_depth, 1, 8);
             params.dither_brightness = clampf(params.dither_brightness, 0.0, 1.0);
-            params.dither_thresh = clamp(params.dither_thresh, 0, 255);
             params.mono_thresh = clamp(params.mono_thresh, 0, 255);
             params.color_shift = clampf(params.color_shift, 0.0, 1.0);
             params.exposure_val = clampf(params.exposure_val, 0.5, 2.0);
             params.contrast_val = clamp(params.contrast_val, 0, 200);
             params.saturation_val = clampf(params.saturation_val, 0.5, 4.0);
             params.color_bias = clamp(params.color_bias, 0, 2);
-            params.pixel_size = clamp(params.pixel_size, 1, 40);
 
             if (effects.dither) {
-                dither(framebuffer, framebuffer_size, width, height, params.dither_thresh, params.dither_brightness);
+                dither(framebuffer, framebuffer_size, width, height, params.dither_brightness);
             }
             if(effects.warp) {
                 warp(framebuffer, width, height, params.warp_mode);
@@ -260,8 +257,7 @@ int main(int argc, char **argv) {
             SDL_UpdateTexture(texture, NULL, framebuffer, width * 3);
             SDL_RenderCopy(renderer, texture, NULL, &texture_rect);
             
-
-            draw_hud(renderer, width + 10, 20, effects, params, mode);
+            draw_hud(renderer, width + 30, 0, effects, params, mode);
 
             SDL_RenderPresent(renderer);
 
@@ -328,9 +324,6 @@ int main(int argc, char **argv) {
                             else if(effects.saturation && mode != 9) { mode = 9; }
                             else { effects.saturation = false; }
                             break;
-                        case SDLK_p:
-                            mode = 10;
-                            if(params.pixel_size < 5) { params.pixel_size = 5; }
                     }
 
                     if(mode == 1) {
@@ -389,13 +382,6 @@ int main(int argc, char **argv) {
                         switch(event.key.keysym.sym) {
                             case SDLK_UP:   params.saturation_val += 0.3; break;
                             case SDLK_DOWN: params.saturation_val -= 0.3;
-                        }
-                    }
-                    else if(mode == 10) {
-                        switch(event.key.keysym.sym) {
-                            case SDLK_UP:   params.pixel_size += 1; break;
-                            case SDLK_DOWN: params.pixel_size -= 1; break;
-                            case SDLK_0:    params.pixel_size  = 1;
                         }
                     }
                 }

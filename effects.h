@@ -24,7 +24,6 @@ typedef struct {
 typedef struct {
     int bit_depth;
     float dither_brightness;
-    int dither_thresh;
     bool mono_do_thresh;
     int mono_thresh;
     int warp_mode;
@@ -33,14 +32,13 @@ typedef struct {
     int contrast_val;
     float saturation_val;
     int color_bias;
-    int pixel_size;
 } EffectParams;
 
 void warp(Uint8 *framebuffer, int width, int height, int option);
 void invert(int *r, int *g, int *b);
 void monochrome(int *r, int *g, int *b, bool do_threshold, int threshold);
 void quantize(int *r, int *g, int *b, int bit_depth);
-void dither(Uint8 *framebuffer, size_t framebuffer_size, int width, int height, int thresh, float brightness);
+void dither(Uint8 *framebuffer, size_t framebuffer_size, int width, int height, float brightness);
 void shift(int *r, int *g, int *b, float color_shift);
 void exposure(int *r, int *g, int *b, float exposure_val);
 void contrast(int *r, int *g, int *b, int contrast_val);
