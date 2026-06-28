@@ -8,7 +8,7 @@
 #include "gui.h"
 
 void convert_to_png(char *ppm_path, char *png_path) {
-    char *fake_argv[4] = {"magick", (char *)ppm_path, (char *)png_path, NULL};
+    char *fake_argv[4] = {"magick", ppm_path, png_path, NULL};
 
     pid_t pid = fork();
     if(pid == 0) {
@@ -44,7 +44,12 @@ int main(int argc, char **argv) {
     bool needs_update = true;
 
     if(argc > 4 || argc < 2) {
-        printf("Please specify the path to a .ppm image and optionally -s <output_file.png/.ppm> to save the file.\n");
+        printf("Please specify the path to a .ppm file and optionally -s <output_file.png/.ppm> to save the file.\n");
+        goto exit;
+    }
+
+    if(strstr(argv[1], ".ppm") == NULL) {
+        printf("Please specify the path to a .ppm file.\n");
         goto exit;
     }
 
@@ -255,8 +260,8 @@ int main(int argc, char **argv) {
             SDL_UpdateTexture(texture, NULL, framebuffer, width * 3);
             SDL_RenderCopy(renderer, texture, NULL, &texture_rect);
             
-            SDL_Color white = {255, 255, 255};
-            draw_hud(renderer, 0, 0, 200, 20, white, effects, params);
+
+            draw_hud(renderer, width + 10, 20, effects, params, mode);
 
             SDL_RenderPresent(renderer);
 
