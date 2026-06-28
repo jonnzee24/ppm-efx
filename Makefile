@@ -13,6 +13,5 @@ effects.o: effects.c effects.h
 gui.o: gui.c gui.h
 	$(CC) $(CFLAGS) -c gui.c -o gui.o
 
-
 clean:
 	rm -f ppm-efx ppm-efx.o effects.o gui.o

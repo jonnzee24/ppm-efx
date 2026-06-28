@@ -167,6 +167,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Failed to create SDL renderer: %s\n", SDL_GetError());
         goto exit;
     }
+    SDL_RenderSetLogicalSize(renderer, width + HUD_WIDTH, height);
 
     SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, width, height);
     if(texture == NULL) {
@@ -259,17 +260,15 @@ int main(int argc, char **argv) {
 
         }
 
-        // Rendering the framebuffer
+        // Rendering
         SDL_RenderClear(renderer);
-        SDL_GetWindowSize(window, &window_width, &window_height);
-        SDL_SetWindowSize(window, window_height + HUD_WIDTH, window_height);
 
         texture_rect.w = window_width - HUD_WIDTH;
         texture_rect.h = window_height;
         SDL_UpdateTexture(texture, NULL, framebuffer, width * 3);
 
         SDL_RenderCopy(renderer, texture, NULL, &texture_rect);
-        draw_hud(renderer, window_width - (HUD_WIDTH - 20), 0, effects, params, mode);
+        draw_hud(renderer, width + 20, 0, effects, params, mode);
 
         SDL_RenderPresent(renderer);
 
