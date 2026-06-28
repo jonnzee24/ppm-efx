@@ -7,6 +7,35 @@
 int clamp(int value, int min, int max);
 float clampf(float value, float min, float max);
 
+typedef struct {
+    bool warp;
+    bool invert;
+    bool mono;
+    bool quantize;
+    bool dither;
+    bool shift;
+    bool exposure;
+    bool contrast;
+    bool saturation;
+    bool color;
+    bool blur;
+} EffectFlags;
+
+typedef struct {
+    int bit_depth;
+    float dither_brightness;
+    int dither_thresh;
+    bool mono_do_thresh;
+    int mono_thresh;
+    int warp_mode;
+    float color_shift;
+    float exposure_val;
+    int contrast_val;
+    float saturation_val;
+    int color_bias;
+    int pixel_size;
+} EffectParams;
+
 void warp(Uint8 *framebuffer, int width, int height, int option);
 void invert(int *r, int *g, int *b);
 void monochrome(int *r, int *g, int *b, bool do_threshold, int threshold);

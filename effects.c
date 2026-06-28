@@ -10,6 +10,8 @@ float clampf(float value, float min, float max) {
     return t > max ? max : t;
 }
 
+
+
 void warp(Uint8 *framebuffer, int width, int height, int option) {
     for(int y = 0; y < height; y++) {
         for(int x = 0; x < width; x++) {

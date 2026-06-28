@@ -1,4 +1,7 @@
 ppm-efx
 *.o
+output
+images/.spicy
+
 .DS_Store
 .vscode
