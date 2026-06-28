@@ -10,14 +10,24 @@ USAGE
 FULL COMMAND EXAMPLE: "./ppm-efx images/arch.ppm -s output.ppm/.png" (conversion to .png depends on imagemagick)
 
 CONTROLS
+
 [Q] = toggle color quantization. While in this mode by pressing [Q] UP/DOWN changes the bit-depth.
+
 [S] = toggle saturation. While in this mode by pressing [S] UP/DOWN changes the saturation value.
+
 [I] = toggle color inversion.
+
 [E] = toggle exposure. While in this mode by pressing [E] UP/DOWN changes the exposure value.
+
 [C] = toggle contrast. While in this mode by pressing [C] UP/DOWN changes the contrast value.
+
 [W] = toggle color warping. While in this mode by pressing [W],
       pressing [1], [2], [3] or [4] changes the warp mode to mirror vertical, mirror horizontal, tear horizontal or tear veritcal.
+      
 [D] = toggle dithering. While in this mode by pressing [D] UP/DOWN changes the brightness pre-dithering.
+
 [M] = toggle monochrome. While in this mode by pressing [M], pressing [T] toggles thresholding and UP/DOWN changes the threshold.
+
 [Z] = toggle color-shift. While in this mode by pressing [Z] UP/DOWN changes the color-shift.
+
 [X] = toggle color-bias. While in this mode by pressing [R], [G] or [B] changes the bias to red, green or blue.
