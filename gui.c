@@ -12,7 +12,7 @@ int init_gui(void) {
         fprintf(stderr, "Failed to initialize SDL2_TTF%s\n", SDL_GetError());
         return 1;
     }
-    font = TTF_OpenFont("Comme-Regular.ttf", 20);
+    font = TTF_OpenFont("Aldrich-Regular.ttf", 20);
 
     if(font == NULL) {
         fprintf(stderr, "Failed to open TTF font%s\n", SDL_GetError());
@@ -69,7 +69,7 @@ void draw_hud(SDL_Renderer *renderer, int x_pos, int y_pos,
     DRAW_EFX_FLAG("[C] Contrast", effects.contrast, 7);
     DRAW_EFX_FLAG("[S] Saturation", effects.saturation, 9);
     DRAW_EFX_FLAG("[Z] Color Shift", effects.shift, 5);
-    DRAW_EFX_FLAG("[C] Color Bias", effects.color, 8);
+    DRAW_EFX_FLAG("[X] Color Bias", effects.color, 8);
     DRAW_EFX_FLAG("[B] Blur", effects.blur, 100);
 
     #undef DRAW_EFX_FLAG
