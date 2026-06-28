@@ -1,6 +1,6 @@
 ppm-efx
 *.o
 output
-images/.spicy
+images/.dot
 .DS_Store
 .vscode
