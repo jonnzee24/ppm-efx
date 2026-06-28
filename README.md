@@ -7,7 +7,9 @@ USAGE
    The output format can be in .png, but it depends on imagemagick to do the conversion.
    If you dont have imagemagick installed, save the output as .ppm
 
-FULL COMMAND EXAMPLE: "./ppm-efx images/arch.ppm -s output.ppm/.png" (conversion to .png depends on imagemagick)
+FULL COMMAND EXAMPLE
+
+"./ppm-efx images/arch.ppm -s output.ppm/.png" (conversion to .png depends on imagemagick)
 
 CONTROLS
 
