@@ -196,8 +196,7 @@ int main(int argc, char **argv) {
         .exposure_val = 1.5,
         .contrast_val = 30,
         .saturation_val = 1.4,
-        .color_bias = 0,
-        .pixel_size = 1
+        .color_bias = 0
     };
 
     int mode = 0;
