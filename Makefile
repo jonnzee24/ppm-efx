@@ -1,6 +1,6 @@
 CC = clang
-CFLAGS = -g -fcolor-diagnostics -std=gnu11 `sdl2-config --cflags`
-LDFLAGS = `sdl2-config --libs` -lm -lSDL2_ttf
+CFLAGS = -g -fcolor-diagnostics -std=gnu11 `pkg-config --cflags sdl2 SDL2_ttf`
+LDFLAGS = `pkg-config --libs sdl2 SDL2_ttf` -lm
 
 ppm-efx: ppm-efx.o effects.o gui.o
 	$(CC) ppm-efx.o effects.o gui.o -o ppm-efx $(LDFLAGS)

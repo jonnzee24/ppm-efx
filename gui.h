@@ -2,7 +2,7 @@
 #define GUI_H
 
 #include "effects.h"
-#include <SDL2/SDL_ttf.h>
+#include <SDL_ttf.h>
 
 #define HUD_WIDTH 300
 
