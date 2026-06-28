@@ -1,3 +1,5 @@
+PPM EFX
+
 A small C program to apply various effects to .ppm images.
 
 USAGE
