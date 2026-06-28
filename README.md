@@ -1,4 +1,4 @@
-A small program to apply various effects to .ppm images.
+A small C program to apply various effects to .ppm images.
 
 USAGE
 1. The first argument is the path to the P6 .ppm image you want to load.
