@@ -108,25 +108,33 @@ void dither(Uint8 *framebuffer, size_t framebuffer_size, int width, int height, 
             int error_g = op_g - qp_g;
             int error_b = op_b - qp_b;
             
-            if(pixel_pos < framebuffer_size - width * 3) {
-                for(int i = 0; i < 3; i++) {
+            for(int i = 0; i < 3; i++) {
+                int error;
+                switch(i) {
+                    case 0:
+                        error = error_r;
+                        break;
+                    case 1:
+                        error = error_g;
+                        break;
+                    case 2:
+                        error = error_b;
+                        break;
+                }
 
-                    int error;
-                    switch(i) {
-                        case 0:
-                            error = error_r;
-                            break;
-                        case 1:
-                            error = error_g;
-                            break;
-                        case 2:
-                            error = error_b;
-                            break;
-                    }
-
+                if(x != width - 1) {
                     framebuffer[(pixel_pos + i + 3)            ] = clamp((framebuffer[(pixel_pos + i + 3)            ] + (error * 7) / 16), 0, 255);
+                }
+                    
+                if(x != 0 && y != height - 1) {
                     framebuffer[(pixel_pos + i - 3) + width * 3] = clamp((framebuffer[(pixel_pos + i - 3) + width * 3] + (error * 3) / 16), 0, 255);
+                }
+                
+                if(y != height - 1) {
                     framebuffer[(pixel_pos + i    ) + width * 3] = clamp((framebuffer[(pixel_pos + i    ) + width * 3] + (error * 5) / 16), 0, 255);
+                }
+
+                if(y != height - 1 && x != width - 1) {
                     framebuffer[(pixel_pos + i + 3) + width * 3] = clamp((framebuffer[(pixel_pos + i + 3) + width * 3] + (error * 1) / 16), 0, 255);
                 }
             }
@@ -193,4 +201,29 @@ void colorb(int *r, int *g, int *b, int color_bias) {
 
 void blur(Uint8 *framebuffer, int width, int height) {
     // Implement gaussian blur when i know how
+}
+
+void pixelate(Uint8 *framebuffer, int width, int height, int pixel_size, int pixel_mode) {
+    int multiplier = (pixel_mode * 3);
+
+    for(int y = 0; y < height; y += pixel_size) {
+        for(int x = 0; x < width; x += pixel_size) {
+            int pixel_pos = (y * width + x) * 3;
+
+            int r = framebuffer[pixel_pos];
+            int g = framebuffer[pixel_pos + 1];
+            int b = framebuffer[pixel_pos + 2];
+
+            for(int ph = 0; ph < pixel_size && (ph + y) < height; ph++) {
+                for(int pw = 0; pw < pixel_size && (pw + x) < width; pw++) {
+                    int pixel_pos_2 = pixel_pos + (ph * width + pw) * multiplier;
+                    if(pixel_pos_2 < width * height * 3) {
+                        framebuffer[pixel_pos_2] = r;
+                        framebuffer[pixel_pos_2 + 1] = g;
+                        framebuffer[pixel_pos_2 + 2] = b;
+                    }
+                }
+            }
+        }
+    }
 }

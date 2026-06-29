@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
     Uint8 *original = NULL;
     Uint8 *framebuffer = NULL;
 
-    int do_output = 0;
+    bool do_output = false;
     int output_format = 0;
 
     bool needs_update = true;
@@ -64,7 +64,16 @@ int main(int argc, char **argv) {
     fgets(temp, sizeof(temp), image_file);
 
     // Line 2: Comment
-    fgets(temp, sizeof(temp), image_file);
+    bool comment_consumed = false;
+    while(!comment_consumed) {
+        int c = fgetc(image_file);
+        ungetc(c, image_file);
+        if(c == '#') {
+            fgets(temp, sizeof(temp), image_file);
+        } else {
+            comment_consumed = true;
+        }
+    }
 
     // Line 3: Dimensions (width height)
     char dimensions[256];
@@ -104,7 +113,7 @@ int main(int argc, char **argv) {
             goto exit;
         }
         fprintf(output_file, "P6\n# Made in PPM EFX.\n%d %d\n255\n", width, height);
-        do_output = 1;
+        do_output = true;
     }
     
     // Allocate framebuffer
@@ -154,7 +163,8 @@ int main(int argc, char **argv) {
     }
     
     int window_width = width + HUD_WIDTH;
-    int window_height = height;
+    int window_height = (height > 1000) ? 1000 : height;
+
     SDL_Window *window = SDL_CreateWindow("PPM EFX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                          window_width, window_height, SDL_WINDOW_RESIZABLE);
     if(window == NULL){
@@ -174,7 +184,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Failed to create SDL texture: %s\n", SDL_GetError());
         goto exit;
     }
-    SDL_Rect texture_rect;
+    SDL_Rect texture_rect = {0};
 
     EffectFlags effects = {
         .warp = false,
@@ -187,7 +197,8 @@ int main(int argc, char **argv) {
         .contrast = false,
         .saturation = false,
         .color = false,
-        .blur = false
+        .blur = false,
+        .pixelate = false
     };
 
     EffectParams params = {
@@ -200,7 +211,9 @@ int main(int argc, char **argv) {
         .exposure_val = 1.5,
         .contrast_val = 30,
         .saturation_val = 1.4,
-        .color_bias = 0
+        .color_bias = 0,
+        .pixel_size = 4,
+        .pixel_mode = 1
     };
 
     int mode = 0;
@@ -223,7 +236,10 @@ int main(int argc, char **argv) {
             params.contrast_val = clamp(params.contrast_val, 0, 200);
             params.saturation_val = clampf(params.saturation_val, 0.5, 4.0);
             params.color_bias = clamp(params.color_bias, 0, 2);
+            params.pixel_size = clamp(params.pixel_size, 1, 21);
+            params.pixel_mode = clamp(params.pixel_mode, 1, 2);
 
+            // PIXEL EFX
             if (effects.dither) {
                 dither(framebuffer, framebuffer_size, width, height, params.dither_brightness);
             }
@@ -233,8 +249,11 @@ int main(int argc, char **argv) {
             if(effects.blur) {
                 blur(framebuffer, width, height);
             }
+            if(effects.pixelate) {
+                pixelate(framebuffer, width, height, params.pixel_size, params.pixel_mode);
+            }
             
-            // EFX
+            // COLOR EFX
             for (int y = 0; y < height; y++) { 
                 for (int x = 0; x < width; x++) {
                     int pixel_pos = (y * width + x) * 3;
@@ -257,14 +276,13 @@ int main(int argc, char **argv) {
                     framebuffer[pixel_pos + 2] = (Uint8)b;
                 }
             }
-
         }
 
         // Rendering
         SDL_RenderClear(renderer);
 
         texture_rect.w = window_width - HUD_WIDTH;
-        texture_rect.h = window_height;
+        texture_rect.h = height;
         SDL_UpdateTexture(texture, NULL, framebuffer, width * 3);
 
         SDL_RenderCopy(renderer, texture, NULL, &texture_rect);
@@ -332,6 +350,10 @@ int main(int argc, char **argv) {
                             else if(effects.saturation && mode != 9) { mode = 9; }
                             else { effects.saturation = false; }
                             break;
+                        case SDLK_p:
+                            if(!effects.pixelate) { effects.pixelate = true; mode = 10; }
+                            else if(effects.pixelate && mode != 10) { mode = 10; }
+                            else { effects.pixelate = false; }
                     }
 
                     if(mode == 1) {
@@ -392,6 +414,18 @@ int main(int argc, char **argv) {
                             case SDLK_DOWN: params.saturation_val -= 0.3;
                         }
                     }
+                    else if(mode == 10) {
+                        int step = 1;
+                        if(params.pixel_mode == 2) { step = 2; }
+
+                        switch(event.key.keysym.sym) {
+                            case SDLK_UP:   params.pixel_size += step; break;
+                            case SDLK_DOWN: params.pixel_size -= step; break;
+                            case SDLK_1: params.pixel_mode = 1; break;
+                            case SDLK_2: params.pixel_mode = 2;
+                                         params.pixel_size = (params.pixel_size % 2 == 0) ? params.pixel_size + 1 : params.pixel_size;
+                        }
+                    }
                 }
             }
         SDL_Delay(10);
@@ -402,7 +436,7 @@ exit:
     if(window)   SDL_DestroyWindow(window);
     if(renderer) SDL_DestroyRenderer(renderer);
     if(texture)  SDL_DestroyTexture(texture);
-    if(gui)      cleanup_gui();
+    cleanup_gui();
 
     SDL_Quit();
 
@@ -412,12 +446,10 @@ exit:
         fwrite(framebuffer, sizeof(Uint8), framebuffer_size, output_file);
         fclose(output_file);
 
-        if(output_file != NULL && output_format == 0) { 
-            
-            printf("File saved sucessfully at %s!\n", ppm_path);
+        if(do_output && output_format == 0) { 
+            printf("File saved successfully at %s!\n", ppm_path);
         }
-
-        if(output_file != NULL && output_format == 1) {
+        else if(do_output && output_format == 1) {
             convert_to_png(ppm_path, png_path);
             free(ppm_path);
         }

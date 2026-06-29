@@ -19,6 +19,7 @@ typedef struct {
     bool saturation;
     bool color;
     bool blur;
+    bool pixelate;
 } EffectFlags;
 
 typedef struct {
@@ -32,6 +33,8 @@ typedef struct {
     int contrast_val;
     float saturation_val;
     int color_bias;
+    int pixel_size;
+    int pixel_mode;
 } EffectParams;
 
 void warp(Uint8 *framebuffer, int width, int height, int option);
@@ -45,5 +48,6 @@ void contrast(int *r, int *g, int *b, int contrast_val);
 void saturation(int *r, int *g, int *b, float saturation_val);
 void colorb(int *r, int *g, int *b, int color_bias);
 void blur(Uint8 *framebuffer, int width, int height);
+void pixelate(Uint8 *framebuffer, int width, int height, int pixel_size, int pixel_mode);
 
 #endif
