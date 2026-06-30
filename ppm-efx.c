@@ -38,18 +38,20 @@ int main(int argc, char **argv) {
     Uint8 *original = NULL;
     Uint8 *framebuffer = NULL;
 
+    char *ppm_path = NULL;
+    char *png_path = NULL;
     bool do_output = false;
     int output_format = 0;
 
     bool needs_update = true;
 
     if(argc > 4 || argc < 2) {
-        printf("Please specify the path to a .ppm file and optionally -s <output_file.png/.ppm> to save the file.\n");
+        printf("Please specify the path to a P6 .ppm file and optionally -s <output_file.png/.ppm> to save the file.\n");
         goto exit;
     }
 
     if(strstr(argv[1], ".ppm") == NULL) {
-        printf("Please specify the path to a .ppm file.\n");
+        printf("Please specify the path to a P6 .ppm file.\n");
         goto exit;
     }
 
@@ -62,6 +64,10 @@ int main(int argc, char **argv) {
     // Line 1: Format specifier (P3/P6)
     char temp[1024];
     fgets(temp, sizeof(temp), image_file);
+    if(strncmp(temp, "P6", 2) != 0) {
+        printf("Only P6 .ppm images are supported. The specified .ppm image has the format: %s\n", temp);
+        goto exit;
+    }
 
     // Line 2: Comment
     bool comment_consumed = false;
@@ -76,7 +82,7 @@ int main(int argc, char **argv) {
     }
 
     // Line 3: Dimensions (width height)
-    char dimensions[256];
+    char dimensions[32];
     int width = 0;
     int height = 0;
     fgets(dimensions, sizeof(dimensions), image_file);
@@ -86,9 +92,6 @@ int main(int argc, char **argv) {
     fgets(temp, sizeof(temp), image_file);
 
     // Create and open output file if -s flag is set
-    char *ppm_path = NULL;
-    char *png_path = NULL;
-
     if (argc == 4 && strcmp(argv[2], "-s") == 0) {
         if(strstr(argv[3], ".png") != NULL) {
             png_path = argv[3];
@@ -125,25 +128,10 @@ int main(int argc, char **argv) {
     }
     memset(framebuffer, 0, framebuffer_size);
 
-    int r = 0;
-    int g = 0;
-    int b = 0;
+    // Writing the image data from the image file to the framebuffer
+    fread(framebuffer, 1, framebuffer_size, image_file);
 
-    // Writing into framebuffer
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            int pixel_pos = (y * width + x) * 3;
-
-            r = fgetc(image_file);
-            g = fgetc(image_file);
-            b = fgetc(image_file);
-
-            framebuffer[pixel_pos    ] = (Uint8)r;
-            framebuffer[pixel_pos + 1] = (Uint8)g;
-            framebuffer[pixel_pos + 2] = (Uint8)b;
-        }
-    }
-
+    // And copying it to save an original to be able to toggle effects
     original = malloc(framebuffer_size);
     if (original == NULL) {
         perror("Memory allocation failed.");
@@ -197,7 +185,7 @@ int main(int argc, char **argv) {
         .contrast = false,
         .saturation = false,
         .color = false,
-        .blur = false,
+        .blur = true,
         .pixelate = false
     };
 
@@ -218,6 +206,10 @@ int main(int argc, char **argv) {
 
     int mode = 0;
 
+    int r = 0;
+    int g = 0;
+    int b = 0;
+
     // SDL event loop
     int app_running = 1;
     while(app_running) {
@@ -227,7 +219,6 @@ int main(int argc, char **argv) {
             needs_update = false;
             memcpy(framebuffer, original, framebuffer_size);
 
-            // EFX setup
             params.bit_depth = clamp(params.bit_depth, 1, 8);
             params.dither_brightness = clampf(params.dither_brightness, 0.0, 1.0);
             params.mono_thresh = clamp(params.mono_thresh, 0, 255);
@@ -276,25 +267,28 @@ int main(int argc, char **argv) {
                     framebuffer[pixel_pos + 2] = (Uint8)b;
                 }
             }
+
+            // Rendering
+            SDL_RenderClear(renderer);
+
+            texture_rect.w = window_width - HUD_WIDTH;
+            texture_rect.h = height;
+            SDL_UpdateTexture(texture, NULL, framebuffer, width * 3);
+
+            SDL_RenderCopy(renderer, texture, NULL, &texture_rect);
+            draw_hud(renderer, width + 20, 0, effects, params, mode);
+
+            SDL_RenderPresent(renderer);
         }
-
-        // Rendering
-        SDL_RenderClear(renderer);
-
-        texture_rect.w = window_width - HUD_WIDTH;
-        texture_rect.h = height;
-        SDL_UpdateTexture(texture, NULL, framebuffer, width * 3);
-
-        SDL_RenderCopy(renderer, texture, NULL, &texture_rect);
-        draw_hud(renderer, width + 20, 0, effects, params, mode);
-
-        SDL_RenderPresent(renderer);
 
         SDL_Event event;
         while(SDL_PollEvent(&event) != 0) {
             switch(event.type) {
                 case SDL_QUIT:
                     app_running = 0;
+                    break;
+                case SDL_WINDOWEVENT:
+                    needs_update = true;
                     break;
                 case SDL_KEYUP:
                     needs_update = true;
@@ -446,16 +440,16 @@ exit:
         fwrite(framebuffer, sizeof(Uint8), framebuffer_size, output_file);
         fclose(output_file);
 
-        if(do_output && output_format == 0) { 
+        if(output_format == 0) { 
             printf("File saved successfully at %s!\n", ppm_path);
         }
-        else if(do_output && output_format == 1) {
+        else if(output_format == 1) {
             convert_to_png(ppm_path, png_path);
-            free(ppm_path);
+            
         }
     }
-
-    free(original);
-    free(framebuffer);
+    if(ppm_path) free(ppm_path);
+    if(original) free(original);
+    if(framebuffer) free(framebuffer);
     return 0;
 }
