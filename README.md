@@ -34,4 +34,6 @@ CONTROLS
 
 [Z] = toggle color-shift. While in this mode by pressing [Z] UP/DOWN changes the color-shift.
 
-[X] = toggle color-bias. While in this mode by pressing [R], [G] or [B] changes the bias to red, green or blue.
+[X] = toggle color-bias. While in this mode by pressing [X], [R], [G] and [B] changes the bias to red, green or blue.
+
+[P] = toggle pixelation. While in this mode by pressing [P], UP/DOWN changes the pixel size and [1] and [2] changed the pixelation mode.
