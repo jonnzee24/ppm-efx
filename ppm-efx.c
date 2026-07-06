@@ -7,30 +7,8 @@
 #include "effects.h"
 #include "gui.h"
 
-void convert_to_png(char *ppm_path, char *png_path) {
-    char *fake_argv[4] = {"magick", ppm_path, png_path, NULL};
-
-    pid_t pid = fork();
-    if(pid == 0) {
-        execvp(fake_argv[0], fake_argv);
-        perror("Convert to PNG: command failed");
-        exit(1);
-    } 
-    else if(pid > 0) {
-        int status;
-        waitpid(pid, &status, 0);
-
-        if(remove(ppm_path) != 0) {
-            perror("Failed to remove temporary .ppm file");
-        } 
-        else {
-            printf("Filed saved sucessfully at %s!\n", png_path);
-        }
-    } 
-    else {
-        perror("Failed to fork child process");
-    }
-}
+int create_output_file(FILE **output_file, char *output_path, char **ppm_path, char **png_path);
+void convert_to_png(char *ppm_path, char *png_path);
 
 int main(int argc, char **argv) {
     FILE *image_file = NULL;
@@ -43,22 +21,36 @@ int main(int argc, char **argv) {
     bool do_output = false;
     int output_format = 0;
 
+    bool cli_mode = false;
+
     bool needs_update = true;
 
-    if(argc > 4 || argc < 2) {
-        printf("Please specify the path to a P6 .ppm file and optionally -s <output_file.png/.ppm> to save the file.\n");
+    if(argc > 4) {
+        printf("Too many arguments.\n");
+        printf("See the README for usage.\n");
         goto exit;
-    }
+    } else if(argc == 1) {
+        char image_path[256];
+        printf("Welcome to ppm-efx!\n");
+        printf("Please specify the path to the P6 .ppm image you want to load: ");
+        scanf("%s", image_path);
 
-    if(strstr(argv[1], ".ppm") == NULL) {
-        printf("Please specify the path to a P6 .ppm file.\n");
-        goto exit;
-    }
-
-    image_file = fopen(argv[1], "rb");
-    if(image_file == NULL) {
-        perror("Failed to load the image");
-        goto exit;
+        image_file = fopen(image_path, "rb");
+        if(image_file == NULL) {
+            perror("Failed to load the image");
+            goto exit;
+        }
+        cli_mode = true;
+    } else {
+        if(strstr(argv[1], ".ppm") == NULL) {
+            printf("Please specify the path to a P6 .ppm image file.\n");
+            goto exit;
+        }
+        image_file = fopen(argv[1], "rb");
+        if(image_file == NULL) {
+            perror("Failed to load the image");
+            goto exit;
+        }
     }
 
     // Line 1: Format specifier (P3/P6)
@@ -93,25 +85,8 @@ int main(int argc, char **argv) {
 
     // Create and open output file if -s flag is set
     if (argc == 4 && strcmp(argv[2], "-s") == 0) {
-        if(strstr(argv[3], ".png") != NULL) {
-            png_path = argv[3];
-            ppm_path = malloc(strlen(png_path) + 5);
-            if(ppm_path == NULL) {
-                perror("Failed to allocate memory for ppm_path.");
-                goto exit;
-            }
-
-            strcpy(ppm_path, png_path);
-            strcat(ppm_path, ".ppm");
-
-            output_file = fopen(ppm_path, "wb");
-            output_format = 1;
-        } else {
-            ppm_path = argv[3];
-            output_file = fopen(ppm_path, "wb");
-        }
-        
-        if(output_file == NULL) {
+        output_format = create_output_file(&output_file, argv[3], &ppm_path, &png_path);
+        if(output_file == NULL || output_format == -1) {
             perror("Failed to create the output file");
             goto exit;
         }
@@ -149,9 +124,9 @@ int main(int argc, char **argv) {
     if(gui != 0) {
         goto exit;
     }
-    
+
     int window_width = width + HUD_WIDTH;
-    int window_height = (height > 1000) ? 1000 : height;
+    int window_height = height > 1000 ? 1000 : height;
 
     SDL_Window *window = SDL_CreateWindow("PPM EFX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                          window_width, window_height, SDL_WINDOW_RESIZABLE);
@@ -185,7 +160,7 @@ int main(int argc, char **argv) {
         .contrast = false,
         .saturation = false,
         .color = false,
-        .blur = true,
+        .blur = false,
         .pixelate = false
     };
 
@@ -271,7 +246,9 @@ int main(int argc, char **argv) {
             // Rendering
             SDL_RenderClear(renderer);
 
-            texture_rect.w = window_width - HUD_WIDTH;
+            texture_rect.x = 0;
+            texture_rect.y = 0;
+            texture_rect.w = width;
             texture_rect.h = height;
             SDL_UpdateTexture(texture, NULL, framebuffer, width * 3);
 
@@ -424,6 +401,8 @@ int main(int argc, char **argv) {
             }
         SDL_Delay(10);
     }
+
+
     
 exit:
     // Clean up
@@ -433,6 +412,29 @@ exit:
     cleanup_gui();
 
     SDL_Quit();
+
+    if(cli_mode && framebuffer != NULL) {
+        char reply;
+        printf("Do you want to save the result? [y/n]: ");
+        scanf(" %c", &reply);
+
+        if(reply == 'y' || reply == 'Y') {
+            char output_path[256];
+            printf("You can save the file as a .ppm or a .png file.\n");
+            printf("Conversion to .png depends on imagemagick, so you must have it installed for it to work.\n");
+            printf("Please specify the path to the output file: ");
+            scanf(" %s", output_path);
+
+            output_format = create_output_file(&output_file, output_path, &ppm_path, &png_path);
+
+            if(output_file == NULL || output_format == -1) {
+                perror("Failed to create the output file");
+            }
+
+            fprintf(output_file, "P6\n# Made in PPM EFX.\n%d %d\n255\n", width, height);
+            do_output = true;
+        }
+    }
 
     if (image_file != NULL)  { fclose(image_file); }
 
@@ -445,11 +447,59 @@ exit:
         }
         else if(output_format == 1) {
             convert_to_png(ppm_path, png_path);
-            
         }
     }
     if(ppm_path) free(ppm_path);
     if(original) free(original);
     if(framebuffer) free(framebuffer);
     return 0;
+}
+
+int create_output_file(FILE **output_file, char *output_path, char **ppm_path, char **png_path) {
+    if(strstr(output_path, ".png") != NULL) {
+        *png_path = output_path;
+        *ppm_path = malloc(strlen(*png_path) + 5);
+        if(*ppm_path == NULL) {
+            perror("Failed to allocate memory for ppm_path.");
+            return -1;
+        }
+        strcpy(*ppm_path, *png_path);
+        strcat(*ppm_path, ".ppm");
+
+        *output_file = fopen(*ppm_path, "wb");
+        return 1;
+    } else {
+        *ppm_path = strdup(output_path);
+        if(*ppm_path == NULL) {
+            perror("Failed to allocate memory for ppm_path.");
+            return -1;
+        }
+        *output_file = fopen(*ppm_path, "wb");
+        return 0;
+    }
+}
+
+void convert_to_png(char *ppm_path, char *png_path) {
+    char *fake_argv[4] = {"magick", ppm_path, png_path, NULL};
+
+    pid_t pid = fork();
+    if(pid == 0) {
+        execvp(fake_argv[0], fake_argv);
+        perror("Conversion to .png failed");
+        exit(1);
+    } 
+    else if(pid > 0) {
+        int status;
+        waitpid(pid, &status, 0);
+
+        if(remove(ppm_path) != 0) {
+            perror("Failed to remove temporary .ppm file");
+        } 
+        else {
+            printf("Filed saved successfully at %s!\n", png_path);
+        }
+    } 
+    else {
+        perror("Failed to fork child process");
+    }
 }

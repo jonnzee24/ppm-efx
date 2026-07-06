@@ -72,12 +72,12 @@ void monochrome(int *r, int *g, int *b, bool do_threshold, int threshold) {
 }
 
 void quantize(int *r, int *g, int *b, int bit_depth) {
-    int divisor = 1 << (8 - bit_depth);
-    int maximum_value = (1 << bit_depth) - 1;
+    int levels = 1 << bit_depth;
+    int colors_amount = 256 / levels;
 
-    *r = (*r / divisor) * 255 / maximum_value;
-    *g = (*g / divisor) * 255 / maximum_value;
-    *b = (*b / divisor) * 255 / maximum_value;
+    *r = ((*r / colors_amount) * 255) / (levels - 1);
+    *g = ((*g / colors_amount) * 255) / (levels - 1);
+    *b = ((*b / colors_amount) * 255) / (levels - 1);
 }
 
 void dither(Uint8 *framebuffer, size_t framebuffer_size, int width, int height, float brightness) {

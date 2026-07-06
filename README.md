@@ -3,11 +3,16 @@ PPM EFX
 A small C program to apply various effects to .ppm images.
 
 USAGE
+
+You can either run the program with zero arguments or with the following arguments to specify the paths directly:
+
 1. The first argument is the path to the P6 .ppm image you want to load.
    
 2. If you want to save the result use the "-s" flag followed by the path to the output file.
    The output format can be in .png, but it depends on imagemagick to do the conversion.
    If you don't have imagemagick installed, save the output as .ppm.
+
+If you run the program with zero arguments you will get prompted to enter the path to a P6 .ppm image, and asked if you want to save the result when youre done. 
 
 FULL COMMAND EXAMPLE
 

@@ -72,7 +72,6 @@ void draw_hud(SDL_Renderer *renderer, int x_pos, int y_pos,
     DRAW_EFX_FLAG("[S] Saturation", effects.saturation, 9);
     DRAW_EFX_FLAG("[Z] Color Shift", effects.shift, 5);
     DRAW_EFX_FLAG("[X] Color Bias", effects.color, 8);
-    DRAW_EFX_FLAG("[B] Blur", effects.blur, 100);
     DRAW_EFX_FLAG("[P] Pixelate", effects.pixelate, 10);
 
     #undef DRAW_EFX_FLAG
