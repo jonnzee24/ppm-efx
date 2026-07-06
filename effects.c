@@ -89,7 +89,6 @@ void dither(Uint8 *framebuffer, size_t framebuffer_size, int width, int height, 
             framebuffer[pixel_pos + 1] = framebuffer[pixel_pos + 1] * brightness;
             framebuffer[pixel_pos + 2] = framebuffer[pixel_pos + 2] * brightness;
 
-
             int op_r = framebuffer[pixel_pos    ];
             int op_g = framebuffer[pixel_pos + 1];
             int op_b = framebuffer[pixel_pos + 2];
@@ -121,19 +120,16 @@ void dither(Uint8 *framebuffer, size_t framebuffer_size, int width, int height, 
                         error = error_b;
                         break;
                 }
-
+                
                 if(x != width - 1) {
-                    framebuffer[(pixel_pos + i + 3)            ] = clamp((framebuffer[(pixel_pos + i + 3)            ] + (error * 7) / 16), 0, 255);
+                    framebuffer[(pixel_pos + i + 3)] = clamp((framebuffer[(pixel_pos + i + 3)] + (error * 7) / 16), 0, 255);
                 }
-                    
                 if(x != 0 && y != height - 1) {
                     framebuffer[(pixel_pos + i - 3) + width * 3] = clamp((framebuffer[(pixel_pos + i - 3) + width * 3] + (error * 3) / 16), 0, 255);
                 }
-                
                 if(y != height - 1) {
-                    framebuffer[(pixel_pos + i    ) + width * 3] = clamp((framebuffer[(pixel_pos + i    ) + width * 3] + (error * 5) / 16), 0, 255);
+                    framebuffer[(pixel_pos + i) + width * 3] = clamp((framebuffer[(pixel_pos + i) + width * 3] + (error * 5) / 16), 0, 255);
                 }
-
                 if(y != height - 1 && x != width - 1) {
                     framebuffer[(pixel_pos + i + 3) + width * 3] = clamp((framebuffer[(pixel_pos + i + 3) + width * 3] + (error * 1) / 16), 0, 255);
                 }

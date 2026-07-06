@@ -206,9 +206,6 @@ int main(int argc, char **argv) {
             params.pixel_mode = clamp(params.pixel_mode, 1, 2);
 
             // PIXEL EFX
-            if (effects.dither) {
-                dither(framebuffer, framebuffer_size, width, height, params.dither_brightness);
-            }
             if(effects.warp) {
                 warp(framebuffer, width, height, params.warp_mode);
             }
@@ -218,7 +215,10 @@ int main(int argc, char **argv) {
             if(effects.pixelate) {
                 pixelate(framebuffer, width, height, params.pixel_size, params.pixel_mode);
             }
-            
+            if (effects.dither) {
+                dither(framebuffer, framebuffer_size, width, height, params.dither_brightness);
+            }
+
             // COLOR EFX
             for (int y = 0; y < height; y++) { 
                 for (int x = 0; x < width; x++) {
