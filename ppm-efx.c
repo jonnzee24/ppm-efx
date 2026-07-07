@@ -263,14 +263,14 @@ int main(int argc, char **argv) {
                 // Draw Stats
                 char buffer[64];
                 
-                draw_text(renderer, 15, 30, DARK_RED, "STATS");
+                draw_text(renderer, 30, 30, DARK_RED, "STATS");
 
                 snprintf(buffer, 64, "Scale: %.2f", usr_scale);
-                draw_text(renderer, 15, 60, WHITE, buffer);
+                draw_text(renderer, 30, 60, WHITE, buffer);
                 snprintf(buffer, 64, "Width: %d", width);
-                draw_text(renderer, 15, 90, WHITE, buffer);
+                draw_text(renderer, 30, 90, WHITE, buffer);
                 snprintf(buffer, 64, "Height: %d", height);
-                draw_text(renderer, 15, 110, WHITE, buffer);
+                draw_text(renderer, 30, 110, WHITE, buffer);
                 
                 // Draw HUD
                 SDL_Rect hud_vp = {image_vp_width + 20, 0, HUD_WIDTH, window_height};
