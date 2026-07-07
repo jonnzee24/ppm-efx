@@ -77,6 +77,8 @@ int draw_hud(SDL_Renderer *renderer, int x_pos, int y_pos,
    
     DRAW_EFX_PARAM("Bit Depth: %d", params.bit_depth, 4);
     DRAW_EFX_PARAM("Warp Mode: %d", params.warp_mode, 2);
+    DRAW_EFX_PARAM("Sine wave lenght: %d", (int)params.sine_length, 2);
+    DRAW_EFX_PARAM("Sine wave amplitude: %d", (int)params.sine_amp, 2);
     DRAW_EFX_PARAM("Mono Threshold: %s", params.mono_do_thresh == 0.0f ? "off" : "on", 3);
     DRAW_EFX_PARAM("Threshold Value: %d", params.mono_thresh, 3);
     DRAW_EFX_PARAM("Dither Brightness: %.2f", params.dither_brightness, 1);

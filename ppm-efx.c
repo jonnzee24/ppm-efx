@@ -18,16 +18,14 @@ int main(int argc, char **argv) {
 
     char *ppm_path = NULL;
     char *png_path = NULL;
-    bool do_output = false;
     int output_format = 0;
 
-    bool cli_mode = false;
     bool needs_update = true;
     bool needs_render = true;
     bool panning = false;
     bool show_hud = true;
 
-    if(argc > 4) {
+    if(argc > 2) {
         printf("Too many arguments.\n");
         printf("See the README for usage.\n");
         goto exit;
@@ -42,7 +40,6 @@ int main(int argc, char **argv) {
             perror("Failed to load the image");
             goto exit;
         }
-        cli_mode = true;
     } else {
         if(strstr(argv[1], ".ppm") == NULL) {
             printf("Please specify the path to a P6 .ppm image file.\n");
@@ -84,17 +81,6 @@ int main(int argc, char **argv) {
 
     // Line 4: Maximum color value
     fgets(temp, sizeof(temp), image_file);
-
-    // Create and open output file if -s flag is set
-    if (argc == 4 && strcmp(argv[2], "-s") == 0) {
-        output_format = create_output_file(&output_file, argv[3], &ppm_path, &png_path);
-        if(output_file == NULL || output_format == -1) {
-            perror("Failed to create the output file");
-            goto exit;
-        }
-        fprintf(output_file, "P6\n# Made in PPM EFX.\n%d %d\n255\n", width, height);
-        do_output = true;
-    }
     
     // Allocate framebuffer
     size_t framebuffer_size = (((width * height) * 3));
@@ -195,13 +181,16 @@ int main(int argc, char **argv) {
 
             params.bit_depth = clamp(params.bit_depth, 1, 8);
             params.dither_brightness = clampf(params.dither_brightness, 0.0, 1.0);
+            params.sine_length = clamp(params.sine_length, 10, 1000);
+            params.sine_amp = clamp(params.sine_amp, 0, 150);
+
             params.mono_thresh = clamp(params.mono_thresh, 0, 255);
             params.color_shift = clampf(params.color_shift, 0.0, 1.0);
             params.exposure_val = clampf(params.exposure_val, 0.5, 2.0);
             params.contrast_val = clamp(params.contrast_val, 0, 200);
             params.saturation_val = clampf(params.saturation_val, 0.5, 4.0);
             params.color_bias = clamp(params.color_bias, 0, 2);
-            params.pixel_size = clamp(params.pixel_size, 1, 21);
+            params.pixel_size = clamp(params.pixel_size, 1, 20);
 
             // PIXEL EFX
             if(effects.warp) {
@@ -278,16 +267,10 @@ int main(int argc, char **argv) {
 
                 snprintf(buffer, 64, "Scale: %.2f", usr_scale);
                 draw_text(renderer, 15, 60, WHITE, buffer);
-
-                snprintf(buffer, 64, "X position: %d", image_usr_x_offset);
-                draw_text(renderer, 15, 90, WHITE, buffer);
-                snprintf(buffer, 64, "Y position: %d", image_usr_y_offset);
-                draw_text(renderer, 15, 120, WHITE, buffer);
-
                 snprintf(buffer, 64, "Width: %d", width);
-                draw_text(renderer, 15, 150, WHITE, buffer);
+                draw_text(renderer, 15, 90, WHITE, buffer);
                 snprintf(buffer, 64, "Height: %d", height);
-                draw_text(renderer, 15, 180, WHITE, buffer);
+                draw_text(renderer, 15, 110, WHITE, buffer);
                 
                 // Draw HUD
                 SDL_Rect hud_vp = {image_vp_width + 20, 0, HUD_WIDTH, window_height};
@@ -309,10 +292,10 @@ int main(int argc, char **argv) {
                     app_running = 0;
                     break;
                 case SDL_MOUSEBUTTONDOWN:
-                    if(event.button.button == SDL_BUTTON_MIDDLE) { panning = true; }
+                    if(event.button.button == SDL_BUTTON_LEFT) { panning = true; }
                     break;
                 case SDL_MOUSEBUTTONUP:
-                    if(event.button.button == SDL_BUTTON_MIDDLE) { panning = false; }
+                    if(event.button.button == SDL_BUTTON_LEFT) { panning = false; }
                     break;
                 case SDL_MOUSEMOTION:
                     if(panning) {
@@ -326,6 +309,24 @@ int main(int argc, char **argv) {
                 case SDL_WINDOWEVENT:
                     needs_render = true;
                     break;
+                case SDL_KEYDOWN:
+                    switch(event.key.keysym.sym) {
+                        case SDLK_MINUS:
+                            usr_scale -= 0.1;
+                            break;
+                        case SDLK_PLUS:
+                            usr_scale += 0.1;
+                            break;
+                        case SDLK_ESCAPE:
+                            usr_scale = 1.0;
+                            image_usr_x_offset = 0;
+                            image_usr_y_offset = 0;
+                            break;
+                        case SDLK_h:
+                            show_hud = !show_hud;
+                            break;
+                    }
+                    break;
                 case SDL_KEYUP:
                     needs_update = true;
 
@@ -335,22 +336,6 @@ int main(int argc, char **argv) {
                             else { (flag) = false; } \
 
                     switch(event.key.keysym.sym) {
-                        case SDLK_MINUS:
-                            usr_scale -= 0.1;
-                            needs_update = false;
-                            break;
-                        case SDLK_PLUS:
-                            usr_scale += 0.1;
-                            needs_update = false;
-                            break;
-                        case SDLK_ESCAPE:
-                            mode = 0;
-                            usr_scale = 1.0;
-                            image_usr_x_offset = 0;
-                            image_usr_y_offset = 0;
-                            needs_update = false;
-                            break;
-
                         case SDLK_d: TOGGLE_EFFECT(effects.dither, 1); break;
                         case SDLK_w: TOGGLE_EFFECT(effects.warp, 2); break;
                         case SDLK_m: TOGGLE_EFFECT(effects.mono, 3); break;
@@ -362,7 +347,6 @@ int main(int argc, char **argv) {
                         case SDLK_s: TOGGLE_EFFECT(effects.saturation, 9); break;
                         case SDLK_p: TOGGLE_EFFECT(effects.pixelate, 10); break;
                         case SDLK_i: effects.invert = !effects.invert; break;
-                        case SDLK_h: show_hud = !show_hud; break;
                     }
 
                     if(mode == 1) {
@@ -377,8 +361,8 @@ int main(int argc, char **argv) {
                             case SDLK_3: params.warp_mode = 3; break;
                             case SDLK_4: params.warp_mode = 4; break;
 
-                            case SDLK_UP: params.sine_length += 10.0f; break;
-                            case SDLK_DOWN: params.sine_length -= 10.0f; break;
+                            case SDLK_UP: params.sine_length += 20.0f; break;
+                            case SDLK_DOWN: params.sine_length -= 20.0f; break;
 
                             case SDLK_RIGHT: params.sine_amp += 5.0f; break;
                             case SDLK_LEFT: params.sine_amp -= 5.0f; break;
@@ -437,9 +421,11 @@ exit:
     if(texture)  SDL_DestroyTexture(texture);
     cleanup_gui();
 
+    SDL_PumpEvents();
     SDL_Quit();
 
-    if(cli_mode && framebuffer != NULL) {
+    bool do_output = false;
+    if(framebuffer) {
         bool success = false;
         char reply;
         char ch;
@@ -461,28 +447,26 @@ exit:
                     scanf(" %s", output_path);
                     output_format = create_output_file(&output_file, output_path, &ppm_path, &png_path);
                 }
-
-                fprintf(output_file, "P6\n# Made in PPM EFX.\n%d %d\n255\n", width, height);
                 do_output = true;
                 success = true;
-            } 
+            }
             else if(reply == 'n' || reply == 'N') {
                 success = true;
-            } 
+            }
             else {
                 printf("Do you want to save the result? [y/n]: ");
                 scanf(" %c", &reply);
-
                 while ((ch = getchar()) != '\n' && ch != EOF);
             }
         }
     }
 
-    if (image_file != NULL)  { fclose(image_file); }
-
     if(do_output) {
+        fprintf(output_file, "P6\n# Made in PPM EFX.\n%d %d\n255\n", width, height);
         fwrite(framebuffer, sizeof(Uint8), framebuffer_size, output_file);
+
         fclose(output_file);
+        output_file = NULL;
 
         if(output_format == 0) { 
             printf("File saved successfully at %s!\n", ppm_path);
@@ -490,9 +474,12 @@ exit:
             convert_to_png(ppm_path, png_path);
         }
     }
-    if(ppm_path) free(ppm_path);
-    if(original) free(original);
+
+    if(image_file)  fclose(image_file);
+    if(output_file) fclose(output_file);
+    if(ppm_path)    free(ppm_path);
     if(framebuffer) free(framebuffer);
+    if(original)    free(original);
     return 0;
 }
 
@@ -545,14 +532,17 @@ void convert_to_png(char *ppm_path, char *png_path) {
         int status;
         waitpid(pid, &status, 0);
 
-        if(remove(ppm_path) != 0) {
-            perror("Failed to remove temporary .ppm file");
-        } 
-        else {
-            printf("Filed saved successfully at %s!\n", png_path);
+        if(WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+            if(remove(ppm_path) != 0) {
+                perror("Failed to remove temporary .ppm file");
+            } 
+            else {
+                printf("Filed saved successfully at %s!\n", png_path);
+            }
+        } else {
+            perror("Imagemagick failed to convert the image to .png");
         }
-    } 
-    else {
+    } else {
         perror("Failed to fork child process");
     }
 }

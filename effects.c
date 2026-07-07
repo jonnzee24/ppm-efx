@@ -11,7 +11,7 @@ float clampf(float value, float min, float max) {
 }
 
 void warp(Uint8 *framebuffer, int width, int height, int option, float sine_lenght, float amplitude) {
-    // create copy of framebuffer to write
+    // create copy of framebuffer to read from
     size_t buffer_size = width * height * 3;
     Uint8 *original = malloc(buffer_size);
     if(original == NULL) {
@@ -20,10 +20,12 @@ void warp(Uint8 *framebuffer, int width, int height, int option, float sine_leng
     memcpy(original, framebuffer, buffer_size);
 
     for(int y = 0; y < height; y++) {
+        // Sine wave for option 4
         float sine_offset = 0;
         if(option == 4) {
             sine_offset = sin((2.0f * M_PI * y) / sine_lenght) * amplitude;
         }
+
         for(int x = 0; x < width; x++) {
             int x_pos = x;
             int y_pos = y;
@@ -31,18 +33,14 @@ void warp(Uint8 *framebuffer, int width, int height, int option, float sine_leng
             if(x > width / 2 && option == 1) {
                 x_pos = width - x;
                 y_pos = y;
-            }
-
+            } 
             if(y > height / 2 && option == 2) {
-                x_pos = x;
                 y_pos = height - y;
-            }
- 
-            if(y % 2 == 0 && option == 3) {
-                x_pos = x - x / 6;
-                y_pos = y - y / 6;
-            }
-
+            } 
+            if(option == 3) {
+                x_pos = width - x;
+                y_pos = height - y;
+            } 
             if(option == 4) {
                 x_pos += sine_offset;
             }
