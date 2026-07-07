@@ -1,5 +1,6 @@
 ppm-efx
 *.o
 .dot
+images
 .DS_Store
 .vscode
