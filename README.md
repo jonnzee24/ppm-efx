@@ -1,6 +1,6 @@
 PPM EFX
 
-A small C program to apply various effects to .ppm images.
+A small C program to apply various effects to .ppm images. The result can be exported as a .png with imagemagick. Made while learning C. 
 
 
 USAGE
