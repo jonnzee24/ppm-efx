@@ -1,6 +1,5 @@
 ppm-efx
 *.o
-output
-images/.dot
+.dot
 .DS_Store
 .vscode
