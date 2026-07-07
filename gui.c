@@ -1,12 +1,5 @@
 #include "gui.h"
 
-#define WHITE (SDL_Color){255, 255, 255, 255}
-#define GRAY (SDL_Color){180, 180, 180, 255}
-#define DARK_RED (SDL_Color){100, 0, 0, 255}
-#define DARK_GREEN (SDL_Color){0, 100, 0, 255}
-
-#define HUD_WIDTH 300
-
 static TTF_Font *font = NULL;
 
 int init_gui(void) {
@@ -40,8 +33,8 @@ void draw_text(SDL_Renderer *renderer, int x_pos, int y_pos,
     SDL_DestroyTexture(texture);
 }
 
-void draw_hud(SDL_Renderer *renderer, int x_pos, int y_pos,
-              EffectFlags effects, EffectParams params, int mode) {
+int draw_hud(SDL_Renderer *renderer, int x_pos, int y_pos,
+             EffectFlags effects, EffectParams params, int mode) {
 
     char buffer[64];
     int line_spacing = 30;
@@ -55,13 +48,9 @@ void draw_hud(SDL_Renderer *renderer, int x_pos, int y_pos,
         draw_text(renderer, x_pos, y_pos + y_offset, color, buffer); \
         y_offset += line_spacing;
     
-    y_offset += line_spacing;
     draw_text(renderer, x_pos, y_offset, DARK_RED, "EFFECTS");
     y_offset += line_spacing;
     
-    // The last parameter is its corresponding mode in ppm-efx.c
-    // I use it to change the color of the text if its mode is on
-    // For effects that dont have a mode i just put 100 lol
     DRAW_EFX_FLAG("[W] Warp", effects.warp, 2);
     DRAW_EFX_FLAG("[Q] Quantize", effects.quantize, 4);
     DRAW_EFX_FLAG("[M] Mono", effects.mono, 3);
@@ -76,8 +65,8 @@ void draw_hud(SDL_Renderer *renderer, int x_pos, int y_pos,
 
     #undef DRAW_EFX_FLAG
 
-    #define DRAW_EFX_PARAM(name, value, efx_mode) \
-        snprintf(buffer, sizeof(buffer), "%s: %.2f", name, (float)value); \
+    #define DRAW_EFX_PARAM(fmt_string, value, efx_mode) \
+        snprintf(buffer, sizeof(buffer), fmt_string, value); \
         color = (efx_mode == mode) ? WHITE : GRAY; \
         draw_text(renderer, x_pos, y_pos + y_offset, color, buffer); \
         y_offset += line_spacing;
@@ -86,20 +75,21 @@ void draw_hud(SDL_Renderer *renderer, int x_pos, int y_pos,
     draw_text(renderer, x_pos, y_offset, DARK_RED, "PARAMETERS");
     y_offset += line_spacing;
    
-    DRAW_EFX_PARAM("Bit Depth", params.bit_depth, 4);
-    DRAW_EFX_PARAM("Warp Mode", params.warp_mode, 2);
-    DRAW_EFX_PARAM("Mono Do Threshold", params.mono_do_thresh, 3);
-    DRAW_EFX_PARAM("Mono Threshold", params.mono_thresh, 3);
-    DRAW_EFX_PARAM("Dither Brightness", params.dither_brightness, 1);
-    DRAW_EFX_PARAM("Exposure Value", params.exposure_val, 6);
-    DRAW_EFX_PARAM("Contrast Value", params.contrast_val, 7);
-    DRAW_EFX_PARAM("Saturation Value", params.saturation_val, 9);
-    DRAW_EFX_PARAM("Color Shift", params.color_shift, 5);
-    DRAW_EFX_PARAM("Color Bias", params.color_bias, 8);
-    DRAW_EFX_PARAM("Pixel Size", params.pixel_size, 10);
-    DRAW_EFX_PARAM("Pixel Mode", params.pixel_mode, 10);
+    DRAW_EFX_PARAM("Bit Depth: %d", params.bit_depth, 4);
+    DRAW_EFX_PARAM("Warp Mode: %d", params.warp_mode, 2);
+    DRAW_EFX_PARAM("Mono Threshold: %s", params.mono_do_thresh == 0.0f ? "off" : "on", 3);
+    DRAW_EFX_PARAM("Threshold Value: %d", params.mono_thresh, 3);
+    DRAW_EFX_PARAM("Dither Brightness: %.2f", params.dither_brightness, 1);
+    DRAW_EFX_PARAM("Exposure Value: %.2f", params.exposure_val, 6);
+    DRAW_EFX_PARAM("Contrast Value: %d", params.contrast_val, 7);
+    DRAW_EFX_PARAM("Saturation Value: %.2f", params.saturation_val, 9);
+    DRAW_EFX_PARAM("Color Shift: %.2f", params.color_shift, 5);
+    DRAW_EFX_PARAM("Color Bias: %c", (params.color_bias == 0.0f ? 'R' : params.color_bias == 1.0f ? 'G' : 'B'), 8);
+    DRAW_EFX_PARAM("Pixel Size: %d", params.pixel_size, 10);
 
     #undef DRAW_EFX_PARAM
+
+    return y_offset;
 }
 
 void cleanup_gui(void) {

@@ -18,7 +18,6 @@ typedef struct {
     bool contrast;
     bool saturation;
     bool color;
-    bool blur;
     bool pixelate;
 } EffectFlags;
 
@@ -28,16 +27,17 @@ typedef struct {
     bool mono_do_thresh;
     int mono_thresh;
     int warp_mode;
+    float sine_length;
+    float sine_amp;
     float color_shift;
     float exposure_val;
     int contrast_val;
     float saturation_val;
     int color_bias;
     int pixel_size;
-    int pixel_mode;
 } EffectParams;
 
-void warp(Uint8 *framebuffer, int width, int height, int option);
+void warp(Uint8 *framebuffer, int width, int height, int option, float sine_lenght, float amplitude);
 void invert(int *r, int *g, int *b);
 void monochrome(int *r, int *g, int *b, bool do_threshold, int threshold);
 void quantize(int *r, int *g, int *b, int bit_depth);
@@ -48,6 +48,6 @@ void contrast(int *r, int *g, int *b, int contrast_val);
 void saturation(int *r, int *g, int *b, float saturation_val);
 void colorb(int *r, int *g, int *b, int color_bias);
 void blur(Uint8 *framebuffer, int width, int height);
-void pixelate(Uint8 *framebuffer, int width, int height, int pixel_size, int pixel_mode);
+void pixelate(Uint8 *framebuffer, int width, int height, int pixel_size);
 
 #endif

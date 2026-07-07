@@ -10,8 +10,20 @@ float clampf(float value, float min, float max) {
     return t > max ? max : t;
 }
 
-void warp(Uint8 *framebuffer, int width, int height, int option) {
+void warp(Uint8 *framebuffer, int width, int height, int option, float sine_lenght, float amplitude) {
+    // create copy of framebuffer to write
+    size_t buffer_size = width * height * 3;
+    Uint8 *original = malloc(buffer_size);
+    if(original == NULL) {
+        perror("Failed to allocate memory");
+    }
+    memcpy(original, framebuffer, buffer_size);
+
     for(int y = 0; y < height; y++) {
+        float sine_offset = 0;
+        if(option == 4) {
+            sine_offset = sin((2.0f * M_PI * y) / sine_lenght) * amplitude;
+        }
         for(int x = 0; x < width; x++) {
             int x_pos = x;
             int y_pos = y;
@@ -26,14 +38,13 @@ void warp(Uint8 *framebuffer, int width, int height, int option) {
                 y_pos = height - y;
             }
  
-            if(x % 2 == 0 && option == 3) {
+            if(y % 2 == 0 && option == 3) {
                 x_pos = x - x / 6;
                 y_pos = y - y / 6;
             }
 
-            if(y % 2 == 0 && option == 4) {
-                x_pos = x - x / 6;
-                y_pos = y - y / 6;
+            if(option == 4) {
+                x_pos += sine_offset;
             }
 
             x_pos = x_pos > width - 1 ? width - 1 : x_pos;
@@ -44,11 +55,12 @@ void warp(Uint8 *framebuffer, int width, int height, int option) {
             int old_pos = (y * width + x) * 3;
             int new_pos = (y_pos * width + x_pos) * 3;
 
-            framebuffer[old_pos    ] = framebuffer[new_pos    ];
-            framebuffer[old_pos + 1] = framebuffer[new_pos + 1];
-            framebuffer[old_pos + 2] = framebuffer[new_pos + 2];
+            framebuffer[old_pos    ] = original[new_pos    ];
+            framebuffer[old_pos + 1] = original[new_pos + 1];
+            framebuffer[old_pos + 2] = original[new_pos + 2];
         }
     }
+    free(original);
 }
 
 void invert(int *r, int *g, int *b) {
@@ -195,13 +207,7 @@ void colorb(int *r, int *g, int *b, int color_bias) {
     }
 }
 
-void blur(Uint8 *framebuffer, int width, int height) {
-    // Implement gaussian blur when i know how
-}
-
-void pixelate(Uint8 *framebuffer, int width, int height, int pixel_size, int pixel_mode) {
-    int multiplier = (pixel_mode * 3);
-
+void pixelate(Uint8 *framebuffer, int width, int height, int pixel_size) {
     for(int y = 0; y < height; y += pixel_size) {
         for(int x = 0; x < width; x += pixel_size) {
             int pixel_pos = (y * width + x) * 3;
@@ -212,7 +218,7 @@ void pixelate(Uint8 *framebuffer, int width, int height, int pixel_size, int pix
 
             for(int ph = 0; ph < pixel_size && (ph + y) < height; ph++) {
                 for(int pw = 0; pw < pixel_size && (pw + x) < width; pw++) {
-                    int pixel_pos_2 = pixel_pos + (ph * width + pw) * multiplier;
+                    int pixel_pos_2 = pixel_pos + (ph * width + pw) * 3;
                     if(pixel_pos_2 < width * height * 3) {
                         framebuffer[pixel_pos_2] = r;
                         framebuffer[pixel_pos_2 + 1] = g;
