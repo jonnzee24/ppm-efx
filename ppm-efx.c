@@ -11,11 +11,14 @@ int create_output_file(FILE **output_file, char *output_path, char **ppm_path, c
 void convert_to_png(char *ppm_path, char *png_path);
 
 int main(int argc, char **argv) {
+    char *image_path = NULL;
     FILE *image_file = NULL;
+    char *output_path = NULL;
     FILE *output_file = NULL;
     Uint8 *framebuffer = NULL;
     Uint8 *original = NULL;
-
+    
+    char *home = getenv("HOME");
     char *ppm_path = NULL;
     char *png_path = NULL;
     int output_format = 0;
@@ -25,31 +28,38 @@ int main(int argc, char **argv) {
     bool panning = false;
     bool show_hud = true;
 
+    SDL_Window *window = NULL;
+    SDL_Renderer *renderer = NULL;
+    SDL_Texture *texture = NULL;
+
+    // Load the image file
     if(argc > 2) {
         printf("Too many arguments.\n");
         printf("See the README for usage.\n");
         goto exit;
-    } else if(argc == 1) {
-        char image_path[256];
+    }
+    else if(argc == 1) {
+        image_path = malloc(512);
         printf("Welcome to ppm-efx!\n");
         printf("Please specify the path to the P6 .ppm image you want to load: ");
         scanf("%s", image_path);
+    }
+    else {
+        image_path = malloc(512);
+        strncpy(image_path, argv[1], 511);
+        image_path[511] = '\0';
+    }
 
-        image_file = fopen(image_path, "rb");
-        if(image_file == NULL) {
-            perror("Failed to load the image");
-            goto exit;
-        }
-    } else {
-        if(strstr(argv[1], ".ppm") == NULL) {
-            printf("Please specify the path to a P6 .ppm image file.\n");
-            goto exit;
-        }
-        image_file = fopen(argv[1], "rb");
-        if(image_file == NULL) {
-            perror("Failed to load the image");
-            goto exit;
-        }
+    if(image_path[0] == '~') {
+        char temp_path[512];
+        snprintf(temp_path, sizeof(temp_path), "%s%s", home, &image_path[1]);
+        strncpy(image_path, temp_path, 512);
+    }
+    
+    image_file = fopen(image_path, "rb");
+    if(image_file == NULL) {
+        perror("Failed to load the image");
+        goto exit;
     }
 
     // Line 1: Format specifier (P3/P6)
@@ -116,20 +126,20 @@ int main(int argc, char **argv) {
     int window_width = width + HUD_WIDTH;
     int window_height = height > 1000 ? 1000 : height;
 
-    SDL_Window *window = SDL_CreateWindow("PPM EFX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_RESIZABLE);
+    window = SDL_CreateWindow("PPM EFX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_RESIZABLE);
     if(window == NULL){
         fprintf(stderr, "Failed to create SDL window: %s\n", SDL_GetError());
         goto exit;
     }
     float usr_scale = 1.0;
 
-    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if(renderer == NULL) {
         fprintf(stderr, "Failed to create SDL renderer: %s\n", SDL_GetError());
         goto exit;
     }
     
-    SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, width, height);
+    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, width, height);
     if(texture == NULL) {
         fprintf(stderr, "Failed to create SDL texture: %s\n", SDL_GetError());
         goto exit;
@@ -200,7 +210,7 @@ int main(int argc, char **argv) {
                 pixelate(framebuffer, width, height, params.pixel_size);
             }
             if (effects.dither) {
-                dither(framebuffer, framebuffer_size, width, height, params.dither_brightness);
+                dither(framebuffer, width, height, params.dither_brightness);
             }
 
             // COLOR EFX
@@ -275,7 +285,7 @@ int main(int argc, char **argv) {
                 // Draw HUD
                 SDL_Rect hud_vp = {image_vp_width + 20, 0, HUD_WIDTH, window_height};
                 SDL_RenderSetViewport(renderer, &hud_vp);
-                int hud_height = draw_hud(renderer, 0, 0, effects, params, mode);
+                draw_hud(renderer, 0, 0, effects, params, mode);
             }
            
             // Reset viewport and render everything
@@ -426,20 +436,31 @@ exit:
 
     bool do_output = false;
     if(framebuffer) {
-        bool success = false;
+        bool done = false;    
         char reply;
         char ch;
         printf("Do you want to save the result? [y/n]: ");
         scanf(" %c", &reply);
 
-        while(!success) {
+        while(!done) {
             if(reply == 'y' || reply == 'Y') {
-                char output_path[256];
+                output_path = malloc(512);
+                if(!output_path) {
+                    perror("Failed to allocate memory for the output file path");
+                    done = true;
+                    goto exit;
+                }
 
                 printf("You can save the file as a .ppm or a .png file.\n");
                 printf("Conversion to .png depends on imagemagick, so you must have it installed for it to work.\n");
                 printf("Please specify the path to the output file: ");
                 scanf(" %s", output_path);
+
+                if(output_path[0] == '~') {
+                    char temp_path[512];
+                    snprintf(temp_path, sizeof(temp_path), "%s%s", home, &output_path[1]);
+                    strncpy(output_path, temp_path, sizeof(temp_path));
+                }
 
                 output_format = create_output_file(&output_file, output_path, &ppm_path, &png_path);
                 while(output_format == -1) {
@@ -448,10 +469,10 @@ exit:
                     output_format = create_output_file(&output_file, output_path, &ppm_path, &png_path);
                 }
                 do_output = true;
-                success = true;
+                done = true;
             }
             else if(reply == 'n' || reply == 'N') {
-                success = true;
+                done = true;
             }
             else {
                 printf("Do you want to save the result? [y/n]: ");
@@ -474,8 +495,10 @@ exit:
             convert_to_png(ppm_path, png_path);
         }
     }
-
+    
+    if(image_path)  free(image_path);
     if(image_file)  fclose(image_file);
+    if(output_path) free(output_path);
     if(output_file) fclose(output_file);
     if(ppm_path)    free(ppm_path);
     if(framebuffer) free(framebuffer);

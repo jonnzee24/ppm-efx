@@ -1,4 +1,4 @@
-#include "gui.h"
+#include "headers/gui.h"
 
 static TTF_Font *font = NULL;
 
@@ -60,7 +60,7 @@ void draw_hud(SDL_Renderer *renderer, int x_pos, int y_pos,
     DRAW_EFX_FLAG("[C] Contrast", effects.contrast, 7);
     DRAW_EFX_FLAG("[S] Saturation", effects.saturation, 9);
     DRAW_EFX_FLAG("[Z] Color Shift", effects.shift, 5);
-    DRAW_EFX_FLAG("[X] Color Bias", effects.color, 8);
+    DRAW_EFX_FLAG("[X] Color Bias", effects.color_bias, 8);
     DRAW_EFX_FLAG("[P] Pixelate", effects.pixelate, 10);
 
     #undef DRAW_EFX_FLAG

@@ -1,5 +1,5 @@
 #include <math.h>
-#include "effects.h"
+#include "headers/effects.h"
 
 int clamp(int value, int min, int max) {
     const int t = value < min ? min : value;
@@ -11,20 +11,12 @@ float clampf(float value, float min, float max) {
     return t > max ? max : t;
 }
 
-void warp(Uint8 *framebuffer, int width, int height, int option, float sine_lenght, float amplitude) {
-    // create copy of framebuffer to read from
-    size_t buffer_size = width * height * 3;
-    Uint8 *original = malloc(buffer_size);
-    if(original == NULL) {
-        perror("Failed to allocate memory");
-    }
-    memcpy(original, framebuffer, buffer_size);
-
+void warp(uint8_t *framebuffer, uint8_t *original, int width, int height, int option, float sine_lenght, float sine_amp) {
     for(int y = 0; y < height; y++) {
         // Sine wave for option 4
         float sine_offset = 0;
         if(option == 4) {
-            sine_offset = sin((2.0f * M_PI * y) / sine_lenght) * amplitude;
+            sine_offset = sin((2.0f * M_PI * y) / sine_lenght) * sine_amp;
         }
 
         for(int x = 0; x < width; x++) {
@@ -59,7 +51,6 @@ void warp(Uint8 *framebuffer, int width, int height, int option, float sine_leng
             framebuffer[old_pos + 2] = original[new_pos + 2];
         }
     }
-    free(original);
 }
 
 void invert(int *r, int *g, int *b) {
@@ -68,8 +59,8 @@ void invert(int *r, int *g, int *b) {
     *b = 255 - *b;
 }
 
-void monochrome(int *r, int *g, int *b, bool do_threshold, int threshold) {
-    Uint8 luminance = (*r + *g + *b) / 3;
+void mono(int *r, int *g, int *b, bool do_threshold, int threshold) {
+    uint8_t luminance = (*r + *g + *b) / 3;
     
     *r = luminance;
     *g = luminance;
@@ -91,7 +82,7 @@ void quantize(int *r, int *g, int *b, int bit_depth) {
     *b = ((*b / colors_amount) * 255) / (levels - 1);
 }
 
-void dither(Uint8 *framebuffer, int width, int height, float brightness) {
+void dither(uint8_t *framebuffer, int width, int height, float brightness) {
     for(int y = 0; y < height; y++) {
         for(int x = 0; x < width; x++) {
             int pixel_pos = (y * width + x) * 3;
@@ -108,7 +99,7 @@ void dither(Uint8 *framebuffer, int width, int height, float brightness) {
             int qp_g = op_g;
             int qp_b = op_b;
 
-            monochrome(&qp_r, &qp_g, &qp_b, true, 120);
+            mono(&qp_r, &qp_g, &qp_b, true, 120);
 
             framebuffer[pixel_pos    ] = qp_r;
             framebuffer[pixel_pos + 1] = qp_g;
@@ -149,19 +140,19 @@ void dither(Uint8 *framebuffer, int width, int height, float brightness) {
     }
 }
 
-void shift(int *r, int *g, int *b, float color_shift) {
-    Uint8 rb = *r;
-    Uint8 gb = *g;
-    Uint8 bb = *b;
+void color_shift(int *r, int *g, int *b, float shift) {
+    uint8_t rb = *r;
+    uint8_t gb = *g;
+    uint8_t bb = *b;
 
-    if(color_shift <= 0.5) {
-        *r = (color_shift * bb) + (1 - color_shift) * rb;
-        *g = (color_shift * rb) + (1 - color_shift) * gb;
-        *b = (color_shift * gb) + (1 - color_shift) * bb;
-    } else if(color_shift > 0.5) {
-        *r = (color_shift * gb) + (1 - color_shift) * rb;
-        *g = (color_shift * bb) + (1 - color_shift) * gb;
-        *b = (color_shift * rb) + (1 - color_shift) * bb;
+    if(shift <= 0.5) {
+        *r = (shift * bb) + (1 - shift) * rb;
+        *g = (shift * rb) + (1 - shift) * gb;
+        *b = (shift * gb) + (1 - shift) * bb;
+    } else if(shift > 0.5) {
+        *r = (shift * gb) + (1 - shift) * rb;
+        *g = (shift * bb) + (1 - shift) * gb;
+        *b = (shift * rb) + (1 - shift) * bb;
     }
 }
 
@@ -193,20 +184,20 @@ void saturation(int *r, int *g, int *b, float saturation_val) {
     *b = clamp(gray + (int)((*b - gray) * saturation_val), 0, 255);
 }
 
-void colorb(int *r, int *g, int *b, int color_bias) {
-    if(color_bias == 0) {
+void color_bias(int *r, int *g, int *b, int bias) {
+    if(bias == 0) {
         *g = *g / 3;
         *b = *b / 3;
-    } else if(color_bias == 1) {
+    } else if(bias == 1) {
         *r = *r / 3;
         *b = *b / 3;
-    } else if(color_bias == 2) {
+    } else if(bias == 2) {
         *r = *r / 3;
         *g = *g / 3;
     }
 }
 
-void pixelate(Uint8 *framebuffer, int width, int height, int pixel_size) {
+void pixelate(uint8_t *framebuffer, int width, int height, int pixel_size) {
     for(int y = 0; y < height; y += pixel_size) {
         for(int x = 0; x < width; x += pixel_size) {
             int pixel_pos = (y * width + x) * 3;
