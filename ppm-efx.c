@@ -569,3 +569,5 @@ void convert_to_png(char *ppm_path, char *png_path) {
         perror("Failed to fork child process");
     }
 }
+
+

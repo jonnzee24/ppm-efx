@@ -1,0 +1,15 @@
+Gaussian blur
+Sharpen
+Sobel edge detection
+Emboss
+Oil painting
+Posterize
+Hue rotation
+Gamma correction
+Histogram
+Histogram equalization
+RGB curves
+Vignette
+Bloom
+Noise
+Chromatic aberration

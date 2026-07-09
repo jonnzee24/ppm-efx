@@ -1,4 +1,7 @@
-#include "headers/gui.h"
+#include <SDL_ttf.h>
+
+#include "common.h"
+#include "gui.h"
 
 static TTF_Font *font = NULL;
 
@@ -7,12 +10,20 @@ int init_gui(void) {
         fprintf(stderr, "Failed to initialize SDL2_TTF%s\n", SDL_GetError());
         return 1;
     }
-    font = TTF_OpenFont("Aldrich-Regular.ttf", 20);
 
+    font = TTF_OpenFont("Aldrich-Regular.ttf", 15);
     if(font == NULL) {
         fprintf(stderr, "Failed to open TTF font%s\n", SDL_GetError());
     }
+
     return 0;
+}
+
+void cleanup_gui(void) {
+    if(font != NULL) {
+        TTF_CloseFont(font);
+    }
+    TTF_Quit();
 }
 
 void draw_text(SDL_Renderer *renderer, int x_pos, int y_pos,
@@ -33,68 +44,35 @@ void draw_text(SDL_Renderer *renderer, int x_pos, int y_pos,
     SDL_DestroyTexture(texture);
 }
 
-void draw_hud(SDL_Renderer *renderer, int x_pos, int y_pos,
-             EffectFlags effects, EffectParams params, int mode) {
+void draw_debug_info(SDL_Context *sdl, const Image *image, const UserParams *usr, const float scale) {
+    char buffer[32];
+    snprintf(buffer, 32, "Scale: %.2f", scale);
+    draw_text(sdl->renderer, 10, 10, WHITE, buffer);
+    snprintf(buffer, 32, "User Scale: %.2f", usr->scale);
+    draw_text(sdl->renderer, 10, 40, WHITE, buffer);
 
-    char buffer[64];
-    int line_spacing = 30;
-    int y_offset = line_spacing;
-    SDL_Color color;
+    snprintf(buffer, 32, "Original Width: %d", image->width);
+    draw_text(sdl->renderer, 10, 70, WHITE, buffer);
+    snprintf(buffer, 32, "Original Height: %d", image->height);
+    draw_text(sdl->renderer, 10, 100, WHITE, buffer);
 
-    #define DRAW_EFX_FLAG(name, flag, efx_mode) \
-        snprintf(buffer, sizeof(buffer), "%s: %s", name, (flag) ? "on" : "off"); \
-        color = (flag) ? DARK_GREEN : GRAY; \
-        color = (efx_mode == mode) ? WHITE : color; \
-        draw_text(renderer, x_pos, y_pos + y_offset, color, buffer); \
-        y_offset += line_spacing;
-    
-    draw_text(renderer, x_pos, y_offset, DARK_RED, "EFFECTS");
-    y_offset += line_spacing;
-    
-    DRAW_EFX_FLAG("[W] Warp", effects.warp, 2);
-    DRAW_EFX_FLAG("[Q] Quantize", effects.quantize, 4);
-    DRAW_EFX_FLAG("[M] Mono", effects.mono, 3);
-    DRAW_EFX_FLAG("[I] Invert", effects.invert, 100);
-    DRAW_EFX_FLAG("[D] Dithering", effects.dither, 1);
-    DRAW_EFX_FLAG("[E] Exposure", effects.exposure, 6);
-    DRAW_EFX_FLAG("[C] Contrast", effects.contrast, 7);
-    DRAW_EFX_FLAG("[S] Saturation", effects.saturation, 9);
-    DRAW_EFX_FLAG("[Z] Color Shift", effects.shift, 5);
-    DRAW_EFX_FLAG("[X] Color Bias", effects.color_bias, 8);
-    DRAW_EFX_FLAG("[P] Pixelate", effects.pixelate, 10);
+    snprintf(buffer, 32, "Current Width: %d", sdl->texture_rect.w);
+    draw_text(sdl->renderer, 10, 130, WHITE, buffer);
+    snprintf(buffer, 32, "Current Height: %d", sdl->texture_rect.h);
+    draw_text(sdl->renderer, 10, 160, WHITE, buffer);
 
-    #undef DRAW_EFX_FLAG
+    snprintf(buffer, 32, "X Position: %d", sdl->texture_rect.x);
+    draw_text(sdl->renderer, 10, 190, WHITE, buffer);
+    snprintf(buffer, 32, "Y Position: %d", sdl->texture_rect.y);
+    draw_text(sdl->renderer, 10, 220, WHITE, buffer);
 
-    #define DRAW_EFX_PARAM(fmt_string, value, efx_mode) \
-        snprintf(buffer, sizeof(buffer), fmt_string, value); \
-        color = (efx_mode == mode) ? WHITE : GRAY; \
-        draw_text(renderer, x_pos, y_pos + y_offset, color, buffer); \
-        y_offset += line_spacing;
-    
-    y_offset += line_spacing;
-    draw_text(renderer, x_pos, y_offset, DARK_RED, "PARAMETERS");
-    y_offset += line_spacing;
-   
-    DRAW_EFX_PARAM("Bit Depth: %d", params.bit_depth, 4);
-    DRAW_EFX_PARAM("Warp Mode: %d", params.warp_mode, 2);
-    DRAW_EFX_PARAM("Sine wave lenght: %d", (int)params.sine_length, 2);
-    DRAW_EFX_PARAM("Sine wave amplitude: %d", (int)params.sine_amp, 2);
-    DRAW_EFX_PARAM("Mono Threshold: %s", params.mono_do_thresh == 0.0f ? "off" : "on", 3);
-    DRAW_EFX_PARAM("Threshold Value: %d", params.mono_thresh, 3);
-    DRAW_EFX_PARAM("Dither Brightness: %.2f", params.dither_brightness, 1);
-    DRAW_EFX_PARAM("Exposure Value: %.2f", params.exposure_val, 6);
-    DRAW_EFX_PARAM("Contrast Value: %d", params.contrast_val, 7);
-    DRAW_EFX_PARAM("Saturation Value: %.2f", params.saturation_val, 9);
-    DRAW_EFX_PARAM("Color Shift: %.2f", params.color_shift, 5);
-    DRAW_EFX_PARAM("Color Bias: %c", (params.color_bias == 0.0f ? 'R' : params.color_bias == 1.0f ? 'G' : 'B'), 8);
-    DRAW_EFX_PARAM("Pixel Size: %d", params.pixel_size, 10);
+    snprintf(buffer, 32, "User X Offset: %d", usr->x_offset);
+    draw_text(sdl->renderer, 10, 250, WHITE, buffer);
+    snprintf(buffer, 32, "User Y Offset: %d", usr->y_offset);
+    draw_text(sdl->renderer, 10, 280, WHITE, buffer);
 
-    #undef DRAW_EFX_PARAM
-}
-
-void cleanup_gui(void) {
-    if(font != NULL) {
-        TTF_CloseFont(font);
-    }
-    TTF_Quit();
+    snprintf(buffer, 32, "Mouse X: %d", usr->mx);
+    draw_text(sdl->renderer, 10, 310, WHITE, buffer);
+    snprintf(buffer, 32, "Mouse Y: %d", usr->my);
+    draw_text(sdl->renderer, 10, 340, WHITE, buffer);
 }

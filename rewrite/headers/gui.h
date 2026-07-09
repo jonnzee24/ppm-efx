@@ -1,15 +1,9 @@
 #ifndef GUI_H
 #define GUI_H
 
-#include "effects.h"
-#include <SDL_ttf.h>
+#include <SDL.h>
 
-#define WHITE (SDL_Color){255, 255, 255, 255}
-#define GRAY (SDL_Color){180, 180, 180, 255}
-#define DARK_RED (SDL_Color){100, 0, 0, 255}
-#define DARK_GREEN (SDL_Color){0, 100, 0, 255}
-
-#define HUD_WIDTH 300
+#include "common.h"
 
 int init_gui(void);
 void cleanup_gui(void);
@@ -26,5 +20,11 @@ void draw_hud(SDL_Renderer *renderer,
               EffectFlags effects,
               EffectParams params,
               int mode);
+
+
+void draw_debug_info(SDL_Context *sdl,
+                     const Image *image,
+                     const UserParams *usr,
+                     float scale);
 
 #endif
