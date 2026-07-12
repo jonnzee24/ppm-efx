@@ -7,37 +7,66 @@
 
 #include "common.h"
 #include "file_io.h"
+#include "tinyfiledialogs.h"
 
+void *load_image(void *data) {
+    Image *image = (Image *)data;
 
+    // set image loaded to false so the texture is reloaded in main
+    image->loaded = false;
 
-int load_image(Image *image) {
-    image->path = malloc(512);
-
-    printf("Welcome to PPM EFX!\n");
-    printf("Please specify the path to the P6 .ppm image you want to load: ");
-    scanf("%511s", image->path);
-
-    if(image->path[0] == '~') {
-        char temp_path[512];
-        char *home_dir = getenv("HOME");
-        if (home_dir == NULL) {
-            printf("Error: HOME environment variable is not set.\n");
-            return 1;
-        }
-        snprintf(temp_path, sizeof(temp_path), "%s%s", home_dir, &image->path[1]);
-        strncpy(image->path, temp_path, 512);
+    // Load new image path
+    const char *image_path = tinyfd_openFileDialog("Load .ppm image", "./", 0, NULL, NULL, 0);
+    if(image_path == NULL) {
+        return NULL;
     }
-    
-    FILE *image_file = fopen(image->path, "rb");
-    if(image_file == NULL) { return 1; }
 
-    if(parse_header(image, image_file) != 0) { return 1; }
+    // clean up previous image data if another image is loaded
+    if (image->path) {
+        free(image->path);
+        image->path = NULL;
+    }
+    if (image->framebuffer) {
+        free(image->framebuffer);
+        image->framebuffer = NULL;
+    }
+    if (image->original) {
+        free(image->original);
+        image->original = NULL;
+    }
+
+    image->path = strdup(image_path);
+    if(image->path == NULL) {
+        return NULL;
+    }
+
+    FILE *image_file = fopen(image->path, "rb");
+    if(image_file == NULL) {
+        free(image->path);
+        image->path = NULL;
+
+        return NULL;
+    }
+
+    if(parse_header(image, image_file) != 0) {
+        fclose(image_file);
+
+        free(image->path);
+        image->path = NULL;
+
+        return NULL;
+    }
 
     // Allocating the framebuffer
     image->framebuffer_size = (image->width * image->height * 3);
     image->framebuffer = malloc(image->framebuffer_size);
     if(image->framebuffer == NULL) {
-        return 1;
+        fclose(image_file);
+
+        free(image->path);
+        image->path = NULL;
+
+        return NULL;
     }
     memset(image->framebuffer, 0, image->framebuffer_size);
 
@@ -46,11 +75,21 @@ int load_image(Image *image) {
 
     // And copying it to save an original to be able to toggle effects
     image->original = malloc(image->framebuffer_size);
-    if (image->original == NULL) { return 1; }
+    if (image->original == NULL) {
+        fclose(image_file);
+
+        free(image->path);
+        image->path = NULL;
+
+        free(image->framebuffer);
+        image->framebuffer = NULL;
+
+        return NULL;
+    }
     memcpy(image->original, image->framebuffer, image->framebuffer_size);
-    
+
     fclose(image_file);
-    return 0;
+    return NULL;
 }
 
 int parse_header(Image *image, FILE *image_file) {
@@ -58,7 +97,7 @@ int parse_header(Image *image, FILE *image_file) {
     char temp[1024];
     fgets(temp, sizeof(temp), image_file);
     if(strncmp(temp, "P6", 2) != 0) {
-        printf("Only P6 .ppm images are supported. The specified image has the format: %s", temp);
+        printf("Only P6 .ppm images are supported.");
         return 1;
     }
 
@@ -85,10 +124,10 @@ int parse_header(Image *image, FILE *image_file) {
     return 0;
 }
 
+/*
 int output_prompt(Output *output, bool *do_output) {
     bool done = false;    
     char reply;
-    char ch;
 
     while(!done) {
         printf("Do you want to save the result? [y/n]: ");
@@ -140,6 +179,7 @@ int output_prompt(Output *output, bool *do_output) {
             done = true;
         }
         else {
+            int ch;
             while ((ch = getchar()) != '\n' && ch != EOF);
         }
     }
@@ -170,3 +210,4 @@ void convert_to_png(char *output_path) {
     }
     remove("temp.ppm");
 }
+*/

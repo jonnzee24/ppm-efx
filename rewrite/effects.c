@@ -3,11 +3,11 @@
 #include "common.h"
 #include "effects.h"
 
-void warp(Image *image, int warp_mode, float sine_lenght, float sine_amp) {
+void warp(Image *image, int warp_mode, float sine_length, float sine_amp) {
     for(int y = 0; y < image->height; y++) {
         float sine_offset = 0;
         if(warp_mode == 4) {
-            sine_offset = sin((2.0f * M_PI * y) / sine_lenght) * sine_amp;
+            sine_offset = sin((2.0f * M_PI * y) / sine_length) * sine_amp;
         }
 
         for(int x = 0; x < image->width; x++) {
@@ -42,7 +42,7 @@ void warp(Image *image, int warp_mode, float sine_lenght, float sine_amp) {
     }
 }
 
-void invert(int *r, int *g, int *b) {
+inline void invert(int *r, int *g, int *b) {
     *r = 255 - *r;
     *g = 255 - *g;
     *b = 255 - *b;
@@ -149,7 +149,7 @@ void color_shift(int *r, int *g, int *b, float shift) {
     }
 }
 
-void exposure(int *r, int *g, int *b, float exposure_val) {
+inline void exposure(int *r, int *g, int *b, float exposure_val) {
     *r = clamp(*r * exposure_val, 0, 255);
     *g = clamp(*g * exposure_val, 0, 255);
     *b = clamp(*b * exposure_val, 0, 255);
@@ -169,12 +169,12 @@ void contrast(int *r, int *g, int *b, int contrast_val) {
     }
 }
 
-void saturation(int *r, int *g, int *b, float saturation_val) {
+inline void saturation(int *r, int *g, int *b, float saturation_val) {
     int gray = (*r + *g + *b) / 3;
 
-    *r = clamp(gray + (int)((*r - gray) * saturation_val), 0, 255);
-    *g = clamp(gray + (int)((*g - gray) * saturation_val), 0, 255);
-    *b = clamp(gray + (int)((*b - gray) * saturation_val), 0, 255);
+    *r = clamp(gray + (*r - gray) * saturation_val, 0, 255);
+    *g = clamp(gray + (*g - gray) * saturation_val, 0, 255);
+    *b = clamp(gray + (*b - gray) * saturation_val, 0, 255);
 }
 
 void color_bias(int *r, int *g, int *b, int bias) {
@@ -213,7 +213,7 @@ void pixelate(Image *image, int pixel_size) {
     }
 }
 
-void apply_efx(Image *image, const EffectFlags *efx, const EffectParams *params) {
+void apply_efx(Image *image, EffectFlags *efx, EffectParams *params) {
     memcpy(image->framebuffer, image->original, image->framebuffer_size);
 
     if(efx->warp) {
@@ -225,7 +225,6 @@ void apply_efx(Image *image, const EffectFlags *efx, const EffectParams *params)
     if (efx->dither) {
         dither(image, params->dither_brightness);
     }
-
 
     for (int y = 0; y < image->height; y++) { 
         for (int x = 0; x < image->width; x++) {

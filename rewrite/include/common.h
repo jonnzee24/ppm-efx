@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <SDL.h>
 
+#include "gui.h"
+
 #define WHITE (SDL_Color){255, 255, 255, 255}
 
 static inline int clamp(int value, int min, int max) {
@@ -17,32 +19,22 @@ static inline float clampf(float value, float min, float max) {
     return t > max ? max : t;
 }
 
-typedef struct {
+typedef struct AppState {
     bool running;
     bool needs_update;
-    bool needs_render;
-    bool do_output;
 } AppState;
 
-typedef struct {
+typedef struct Image {
     char *path;
     int width;
     int height;
     uint8_t *framebuffer;
     size_t framebuffer_size;
     uint8_t *original;
+    bool loaded;
 } Image;
 
-typedef struct {
-    char *path;
-    FILE *file;
-    enum {
-        PPM,
-        PNG
-    } format;
-} Output;
-
-typedef struct {
+typedef struct SDL_Context {
     int win_width;
     int win_height;
     SDL_Window *window;
@@ -52,7 +44,7 @@ typedef struct {
     SDL_Rect image_vp;
 } SDL_Context;
 
-typedef struct {
+typedef struct UserParams {
     int x_offset;
     int y_offset;
     float scale;
@@ -82,6 +74,7 @@ typedef struct EffectParams {
         UPSIDE_DOWN,
         SINE
     } warp_mode;
+
     float sine_length;
     float sine_amp;
     float dither_brightness;
@@ -92,8 +85,21 @@ typedef struct EffectParams {
     float exposure_val;
     int contrast_val;
     float saturation_val;
-    int color_bias;
+
+    enum {
+        R, G, B
+    } color_bias;
+
     float color_shift;
 } EffectParams;
+
+typedef struct AppContext {
+    AppState state;
+    GuiState gui;
+    SDL_Context sdl;
+    UserParams usr;
+    EffectFlags efx;
+    EffectParams params;
+} AppContext;
 
 #endif

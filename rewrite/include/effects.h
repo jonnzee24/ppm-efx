@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-void warp(Image *image, int warp_mode, float sine_lenght, float sine_amp);
+void warp(Image *image, int warp_mode, float sine_length, float sine_amp);
 void dither(Image *image, float brightness);
 void pixelate(Image *image, int pixel_size);
 void invert(int *r, int *g, int *b);
@@ -17,6 +17,6 @@ void saturation(int *r, int *g, int *b, float saturation_val);
 void color_bias(int *r, int *g, int *b, int bias);
 void color_shift(int *r, int *g, int *b, float shift);
 
-void apply_efx(Image *image, const EffectFlags *effects, const EffectParams *params);
+void apply_efx(Image *image, EffectFlags *effects, EffectParams *params);
 
 #endif

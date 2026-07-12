@@ -12,84 +12,65 @@
 #include "effects.h"
 #include "gui.h"
 
-int main(int argc, char **argv) {
-    (void)argv;
-    if(argc != 1) {
-        printf("PPM EFX doesnt take any arguments!\n");
-        return 1;
-    }
-    
+int main(void) {
+    AppContext ctx = {0};
     Image image = {0};
-    Output output = {0};
 
-    SDL_Context sdl = {0};
-
-    EffectFlags efx = {0};
-    EffectParams params = {
-        .warp_mode = 1,
-        .sine_length = 120.0f,
-        .sine_amp = 20.0f,
-        .dither_brightness = 0.8f,
-        .pixel_size = 4,
-        .mono_do_thresh = false,
-        .mono_thresh = 140,
-        .bit_depth = 4,
-        .exposure_val = 1.5f,
-        .contrast_val = 30,
-        .saturation_val = 1.4f,
-        .color_bias = 0,
-        .color_shift = 0.4f
-    };
-
-    AppState state = {
-        .running = true,
-        .needs_update = true,
-        .needs_render = true,
-        .do_output = false
-    };
-
-    UserParams usr = {
-        .x_offset = 0,
-        .y_offset = 0,
-        .scale = 1.0f,
-        .panning = false,
-        .mx = 0,
-        .my = 0
-    };
+    ctx.state.running = true;
+    ctx.state.needs_update = true;
+    ctx.usr.scale = 1.0f;
     
-    if(load_image(&image) != 0) {
-        perror("Failed to load the image");
-        goto exit;
-    }
+    // initial effect parameter values
+    ctx.params.warp_mode = MIRROR_X;
+    ctx.params.sine_length = 120.0f;
+    ctx.params.sine_amp = 20.0f;
+    ctx.params.dither_brightness = 0.8f;
+    ctx.params.pixel_size = 4;
+    ctx.params.mono_do_thresh = false;
+    ctx.params.mono_thresh = 120;
+    ctx.params.bit_depth = 4;
+    ctx.params.exposure_val = 1.5f;
+    ctx.params.contrast_val = 30;
+    ctx.params.saturation_val = 1.4f;
+    ctx.params.color_bias = R;
+    ctx.params.color_shift = 0.5f;
 
-    if(init_sdl(&sdl, &image) != 0) {
+    if(init_sdl(&ctx) != 0) {
         fprintf(stderr, "Failed to initialize SDL: %s\n", SDL_GetError());  
         goto exit;
     }
+    if(init_gui(&ctx, &image) != 0) {
+        return 1;
+    }
 
-    while(state.running) {
-        SDL_GetWindowSize(sdl.window, &sdl.win_width, &sdl.win_height);
-        SDL_GetMouseState(&usr.mx, &usr.my);
+    while(ctx.state.running) {
+        SDL_GetWindowSize(ctx.sdl.window, &ctx.sdl.win_width, &ctx.sdl.win_height);
+        SDL_GetMouseState(&ctx.usr.mx, &ctx.usr.my);
 
-        if(state.needs_update) {
-            update(&sdl, &image, &efx, &params);
-            state.needs_update = false;
+        if(image.framebuffer != NULL && !image.loaded) {
+            if(create_image_texture(&ctx.sdl, &image) != 0) {
+                fprintf(stderr, "Failed to create image texture: %s\n", SDL_GetError());
+            }
+
+            ctx.usr.scale = 1.0f;
+            ctx.usr.x_offset = 0;
+            ctx.usr.y_offset = 0;
+
+            ctx.state.needs_update = true;
+            image.loaded = true;
         }
 
-        if(state.needs_render) {
-            render(&sdl, &image, &usr);
-            state.needs_render = false;
+        if(ctx.state.needs_update) {
+            update(&ctx, &image);
+            ctx.state.needs_update = false;
         }
-        
-        process_events(&usr, &sdl, &state, &efx);
+
+        render(&ctx, &image);
+        process_events(&ctx);
         SDL_Delay(10);
     }
-    
-    if(output_prompt(&output, &state.do_output) != 0) {
-        perror("Failed to create the output file");
-        goto exit;
-    }
-
+   
+    /*
     if(state.do_output) {
         fprintf(output.file, "P6\n# Made in PPM EFX.\n%d %d\n255\n", image.width, image.height);
         fwrite(image.framebuffer, sizeof(Uint8), image.framebuffer_size, output.file);
@@ -102,171 +83,145 @@ int main(int argc, char **argv) {
             convert_to_png(output.path);
         }
     }
+    */
 
 exit:
+    if(ctx.sdl.window)   SDL_DestroyWindow(ctx.sdl.window);
+    if(ctx.sdl.renderer) SDL_DestroyRenderer(ctx.sdl.renderer);
+    if(ctx.sdl.texture)  SDL_DestroyTexture(ctx.sdl.texture);
+    cleanup_gui();
+    SDL_Quit();
+
     if(image.path)        free(image.path);
     if(image.framebuffer) free(image.framebuffer);
     if(image.original)    free(image.original);
-    if(output.path)       free(output.path);
-
-    if(sdl.window)   SDL_DestroyWindow(sdl.window);
-    if(sdl.renderer) SDL_DestroyRenderer(sdl.renderer);
-    if(sdl.texture)  SDL_DestroyTexture(sdl.texture);
-    cleanup_gui();
-    SDL_PumpEvents();
-    SDL_Quit();
 
     return 0;
 }
 
-int init_sdl(SDL_Context *sdl, const Image *image) {
+int init_sdl(AppContext *ctx) {
     if(SDL_Init(SDL_INIT_VIDEO) != 0) { return 1; }
-    if(init_gui() != 0) {
-        return 1;
+
+    ctx->sdl.win_width = 1600;
+    ctx->sdl.win_height = 900;
+    
+    ctx->sdl.window = SDL_CreateWindow("PPM EFX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
+                                       ctx->sdl.win_width, ctx->sdl.win_height, SDL_WINDOW_RESIZABLE);
+    if(ctx->sdl.window == NULL) { return 1; }
+
+    ctx->sdl.renderer = SDL_CreateRenderer(ctx->sdl.window, -1, SDL_RENDERER_ACCELERATED);
+    if(ctx->sdl.renderer == NULL) { return 1; }
+
+    ctx->sdl.image_vp = (SDL_Rect){MARGIN_X / 2, MARGIN_Y / 2, ctx->sdl.win_width - MARGIN_X, ctx->sdl.win_height - MARGIN_Y};
+
+    return 0;
+}
+
+int create_image_texture(SDL_Context *sdl, Image *image) {
+    sdl->texture = SDL_CreateTexture(sdl->renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, image->width, image->height);
+    sdl->texture_rect = (SDL_Rect){0, 0, 0, 0};
+    if(sdl->texture == NULL) { return 1; }
+    return 0;
+}
+
+void update(AppContext *ctx, Image *image) {
+    if(image->loaded) { apply_efx(image, &ctx->efx, &ctx->params); }
+    SDL_UpdateTexture(ctx->sdl.texture, NULL, image->framebuffer, image->width * 3);
+}
+
+void render(AppContext *ctx, Image *image) {
+    ctx->sdl.image_vp.w = ctx->sdl.win_width - MARGIN_X;
+    ctx->sdl.image_vp.h = ctx->sdl.win_height - MARGIN_Y;
+
+    SDL_SetRenderDrawColor(ctx->sdl.renderer, 80, 80, 80, 255);
+    SDL_RenderClear(ctx->sdl.renderer);
+    
+    SDL_SetRenderDrawColor(ctx->sdl.renderer, 60, 60, 60, 255);
+    SDL_RenderFillRect(ctx->sdl.renderer, &ctx->sdl.image_vp);
+
+    render_gui(ctx, image);
+
+    if(image->loaded) {
+        ctx->sdl.texture_rect.w = (int)image->width  * ctx->usr.scale;
+        ctx->sdl.texture_rect.h = (int)image->height * ctx->usr.scale;
+        ctx->sdl.texture_rect.x = (ctx->sdl.image_vp.w / 2) - (ctx->sdl.texture_rect.w / 2) + ctx->usr.x_offset;
+        ctx->sdl.texture_rect.y = (ctx->sdl.image_vp.h / 2) - (ctx->sdl.texture_rect.h / 2) + ctx->usr.y_offset;
+
+        SDL_RenderSetViewport(ctx->sdl.renderer, &ctx->sdl.image_vp);
+        SDL_RenderCopy(ctx->sdl.renderer, ctx->sdl.texture, NULL, &ctx->sdl.texture_rect);
     }
 
-    sdl->win_width = image->width;
-    sdl->win_height = image->height > 1000 ? 1000 : image->height;
-    
-    sdl->window = SDL_CreateWindow("PPM EFX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, sdl->win_width, sdl->win_height, SDL_WINDOW_RESIZABLE);
-    if(sdl->window == NULL) { return 1; }
-
-    sdl->renderer = SDL_CreateRenderer(sdl->window, -1, SDL_RENDERER_ACCELERATED);
-    if(sdl->renderer == NULL) { return 1; }
-
-    sdl->texture = SDL_CreateTexture(sdl->renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, image->width, image->height);
-    sdl->texture_rect = (SDL_Rect){0, 0, image->width, image->height};
-    sdl->image_vp = (SDL_Rect){MARGIN_X / 2, MARGIN_Y / 2, sdl->win_width - MARGIN_X, sdl->win_height - MARGIN_Y};
-    if(sdl->texture == NULL) { return 1; }
-
-    return 0;
+    SDL_RenderSetViewport(ctx->sdl.renderer, NULL);
+    SDL_RenderPresent(ctx->sdl.renderer);
 }
 
-void update(SDL_Context *sdl, Image *image, const EffectFlags *efx, const EffectParams *params) {
-    apply_efx(image, efx, params);
-    SDL_UpdateTexture(sdl->texture, NULL, image->framebuffer, image->width * 3);
-}
-
-void render(SDL_Context *sdl, const Image *image, UserParams *usr) {
-    SDL_SetRenderDrawColor(sdl->renderer, 80, 80, 80, 255);
-    SDL_RenderClear(sdl->renderer);
-    
-    sdl->image_vp.w = sdl->win_width - MARGIN_X;
-    sdl->image_vp.h = sdl->win_height - MARGIN_Y;
-
-    SDL_SetRenderDrawColor(sdl->renderer, 100, 100, 100, 255);
-    SDL_RenderFillRect(sdl->renderer, &sdl->image_vp);
-
-    float scale_x = (float)sdl->image_vp.w / image->width;
-    float scale_y = (float)sdl->image_vp.h / image->height;
-    float scale = (scale_x < scale_y) ? scale_x : scale_y;
-    usr->scale = clampf(usr->scale, 0.1f, 20.0f);
-    scale *= usr->scale;
-
-    sdl->texture_rect.w = (int)image->width  * scale;
-    sdl->texture_rect.h = (int)image->height * scale;
-    sdl->texture_rect.x = (sdl->image_vp.w / 2) - (sdl->texture_rect.w / 2) + usr->x_offset;
-    sdl->texture_rect.y = (sdl->image_vp.h / 2) - (sdl->texture_rect.h / 2) + usr->y_offset;
-
-    SDL_RenderSetViewport(sdl->renderer, &sdl->image_vp);
-    SDL_RenderCopy(sdl->renderer, sdl->texture, NULL, &sdl->texture_rect);
-    
-    SDL_RenderSetViewport(sdl->renderer, NULL);
-    draw_debug_info(sdl, image, usr, scale);
-
-    SDL_RenderPresent(sdl->renderer);
-}
-
-void process_events(UserParams *usr, SDL_Context *sdl, AppState *state, EffectFlags *efx) {
+void process_events(AppContext *ctx) {
     SDL_Event event;
     while(SDL_PollEvent(&event) != 0) {
+        process_gui_events(&event, ctx);
+
         switch(event.type) {
             case SDL_QUIT:
-                state->running = false;
+                ctx->state.running = false;
                 break;
 
             case SDL_WINDOWEVENT:
-                state->needs_render = true;
+                update_gui(ctx);
                 break;
 
             case SDL_MOUSEBUTTONDOWN:
                 if(event.button.button == SDL_BUTTON_LEFT) {
-                    SDL_Point mouse_point = { usr->mx, usr->my };
+                    SDL_Point mouse_pos = {ctx->usr.mx, ctx->usr.my};
 
                     SDL_Rect image_box = {
-                        sdl->texture_rect.x + (MARGIN_X / 2),
-                        sdl->texture_rect.y + (MARGIN_Y / 2),
-                        sdl->texture_rect.w,
-                        sdl->texture_rect.h
+                        ctx->sdl.texture_rect.x + (MARGIN_X * 0.5),
+                        ctx->sdl.texture_rect.y + (MARGIN_Y * 0.5),
+                        ctx->sdl.texture_rect.w,
+                        ctx->sdl.texture_rect.h
                     };
 
-                    if(SDL_PointInRect(&mouse_point, &image_box)) {
-                        usr->panning = true;
+                    if(SDL_PointInRect(&mouse_pos, &image_box)) {
+                        ctx->usr.panning = true;
                     }
                 }
                 break;
 
             case SDL_MOUSEBUTTONUP:
                 if(event.button.button == SDL_BUTTON_LEFT) {
-                    usr->panning = false;
+                    ctx->usr.panning = false;
                 }
                 break;
 
             case SDL_MOUSEMOTION:
-                if(usr->panning) {
-                    usr->x_offset += event.motion.xrel;
-                    usr->y_offset += event.motion.yrel;
-                    int max_x = sdl->image_vp.w * 0.5;
-                    int max_y = sdl->image_vp.h * 0.5;
-                    usr->x_offset = clamp(usr->x_offset, -max_x, max_x);
-                    usr->y_offset = clamp(usr->y_offset, -max_y, max_y);
+                if(ctx->usr.panning) {
+                    ctx->usr.x_offset += event.motion.xrel;
+                    ctx->usr.y_offset += event.motion.yrel;
+                    int max_x = ctx->sdl.image_vp.w * 0.5;
+                    int max_y = ctx->sdl.image_vp.h * 0.5;
+                    ctx->usr.x_offset = clamp(ctx->usr.x_offset, -max_x, max_x);
+                    ctx->usr.y_offset = clamp(ctx->usr.y_offset, -max_y, max_y);
                 }
-
-                state->needs_render = true;
                 break;
 
             case SDL_MOUSEWHEEL:
-                usr->scale += event.wheel.y * usr->scale / 10;
-
-                state->needs_render = true;
+                ctx->usr.scale += event.wheel.y * ctx->usr.scale / 10;
+                ctx->usr.scale = clampf(ctx->usr.scale, 0.1, 20);
                 break;
 
             case SDL_KEYDOWN:
-                #define TOGGLE_EFFECT(flag) \
-                    do { \
-                        (flag) = !(flag); \
-                        state->needs_update = true; \
-                        state->needs_render = true; \
-                    } while(0)
-
                 switch(event.key.keysym.sym) {
-                    case SDLK_d: TOGGLE_EFFECT(efx->dither); break;
-                    case SDLK_w: TOGGLE_EFFECT(efx->warp); break;
-                    case SDLK_m: TOGGLE_EFFECT(efx->mono); break;
-                    case SDLK_q: TOGGLE_EFFECT(efx->quantize); break;
-                    case SDLK_z: TOGGLE_EFFECT(efx->color_shift); break;
-                    case SDLK_e: TOGGLE_EFFECT(efx->exposure); break;
-                    case SDLK_c: TOGGLE_EFFECT(efx->contrast); break;
-                    case SDLK_x: TOGGLE_EFFECT(efx->color_bias); break;
-                    case SDLK_s: TOGGLE_EFFECT(efx->saturation); break;
-                    case SDLK_p: TOGGLE_EFFECT(efx->pixelate); break;
-                    case SDLK_i: TOGGLE_EFFECT(efx->invert); break;
-
                     case SDLK_MINUS:
-                        usr->scale -= 0.1;
-                        state->needs_render = true;
+                        ctx->usr.scale -= 0.1;
                         break;
 
                     case SDLK_PLUS:
-                        usr->scale += 0.1;
-                        state->needs_render = true;
+                        ctx->usr.scale += 0.1;
                         break;
 
                     case SDLK_ESCAPE:
-                        usr->scale = 1.0;
-                        usr->x_offset = 0;
-                        usr->y_offset = 0;
-                        state->needs_render = true;
+                        ctx->usr.scale = 1.0;
+                        ctx->usr.x_offset = 0;
+                        ctx->usr.y_offset = 0;
                         break;
                 }
         }
