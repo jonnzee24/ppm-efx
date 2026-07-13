@@ -4,7 +4,8 @@
 #include <sys/wait.h>
 #include <string.h>
 #include <stdbool.h>
-#include <SDL.h>
+#include <SDL3/SDL.h>
+#include "stb_image.h"
 
 #include "common.h"
 #include "file_io.h"
@@ -32,7 +33,7 @@ int main(void) {
     ctx.params.sine_length = 0.5f;
     ctx.params.sine_amp = 0.5f;
     ctx.params.dither_brightness = 0.5f;
-    ctx.params.pixel_size = 0.1f;
+    ctx.params.pixel_size = 0.5f;
     ctx.params.threshold_val = 0.5f;
     ctx.params.threshold_mode = 0;
     ctx.params.bit_depth = 0.5f;
@@ -86,31 +87,36 @@ int main(void) {
 exit:
     if(ctx.sdl.window)   SDL_DestroyWindow(ctx.sdl.window);
     if(ctx.sdl.renderer) SDL_DestroyRenderer(ctx.sdl.renderer);
-    if(image.texture)  SDL_DestroyTexture(image.texture);
+    if(image.texture)    SDL_DestroyTexture(image.texture);
     cleanup_gui();
     SDL_Quit();
 
     if(image.path)        free(image.path);
     if(image.framebuffer) free(image.framebuffer);
-    if(image.original)    free(image.original);
+    if(image.original)    stbi_image_free(image.original);
 
     return 0;
 }
 
 int init_sdl(AppContext *ctx) {
-    if(SDL_Init(SDL_INIT_VIDEO) != 0) { return 1; }
+    if(!SDL_Init(SDL_INIT_VIDEO)) {
+        return 1;
+    }
 
     ctx->sdl.win_width = 1600;
     ctx->sdl.win_height = 900;
     
-    ctx->sdl.window = SDL_CreateWindow("PPM EFX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
-                                       ctx->sdl.win_width, ctx->sdl.win_height, SDL_WINDOW_RESIZABLE);
-    if(ctx->sdl.window == NULL) { return 1; }
+    ctx->sdl.window = SDL_CreateWindow("PPM EFX", ctx->sdl.win_width, ctx->sdl.win_height, SDL_WINDOW_RESIZABLE);
+    if(ctx->sdl.window == NULL) {
+        return 1;
+    }
 
     SDL_SetWindowMinimumSize(ctx->sdl.window, 1600, 900);
 
-    ctx->sdl.renderer = SDL_CreateRenderer(ctx->sdl.window, -1, SDL_RENDERER_ACCELERATED);
-    if(ctx->sdl.renderer == NULL) { return 1; }
+    ctx->sdl.renderer = SDL_CreateRenderer(ctx->sdl.window, NULL);
+    if(ctx->sdl.renderer == NULL) {
+        return 1;
+    }
 
     ctx->sdl.image_vp = (SDL_Rect){MARGIN_X / 2, MARGIN_Y / 2, ctx->sdl.win_width - MARGIN_X, ctx->sdl.win_height - MARGIN_Y};
 
@@ -136,7 +142,7 @@ void render(AppContext *ctx, Image *image) {
     SDL_RenderClear(ctx->sdl.renderer);
     
     SDL_SetRenderDrawColor(ctx->sdl.renderer, 60, 60, 60, 255);
-    SDL_RenderFillRect(ctx->sdl.renderer, &ctx->sdl.image_vp);
+    SDL_RenderFillRect(ctx->sdl.renderer, (SDL_FRect *)&ctx->sdl.image_vp);
 
     render_gui(ctx, image);
 
@@ -146,11 +152,11 @@ void render(AppContext *ctx, Image *image) {
         image->texture_rect.x = (ctx->sdl.image_vp.w / 2) - (image->texture_rect.w / 2) + ctx->usr.x_offset;
         image->texture_rect.y = (ctx->sdl.image_vp.h / 2) - (image->texture_rect.h / 2) + ctx->usr.y_offset;
 
-        SDL_RenderSetViewport(ctx->sdl.renderer, &ctx->sdl.image_vp);
-        SDL_RenderCopy(ctx->sdl.renderer, image->texture, NULL, &image->texture_rect);
+        SDL_SetRenderViewport(ctx->sdl.renderer, &ctx->sdl.image_vp);
+        SDL_RenderTexture(ctx->sdl.renderer, image->texture, NULL, &image->texture_rect);
     }
 
-    SDL_RenderSetViewport(ctx->sdl.renderer, NULL);
+    SDL_SetRenderViewport(ctx->sdl.renderer, NULL);
     SDL_RenderPresent(ctx->sdl.renderer);
 }
 
@@ -160,15 +166,15 @@ void process_events(AppContext *ctx, Image *image) {
         process_gui_events(&event, ctx);
 
         switch(event.type) {
-            case SDL_QUIT:
+            case SDL_EVENT_QUIT:
                 ctx->state.running = false;
                 break;
 
-            case SDL_WINDOWEVENT:
+            case SDL_EVENT_WINDOW_RESIZED:
                 update_gui(ctx);
                 break;
 
-            case SDL_MOUSEBUTTONDOWN:
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
                 if(event.button.button == SDL_BUTTON_LEFT) {
                     SDL_Point mouse_pos = {ctx->usr.mx, ctx->usr.my};
 
@@ -185,13 +191,13 @@ void process_events(AppContext *ctx, Image *image) {
                 }
                 break;
 
-            case SDL_MOUSEBUTTONUP:
+            case SDL_EVENT_MOUSE_BUTTON_UP:
                 if(event.button.button == SDL_BUTTON_LEFT) {
                     ctx->usr.panning = false;
                 }
                 break;
 
-            case SDL_MOUSEMOTION:
+            case SDL_EVENT_MOUSE_MOTION:
                 if(ctx->usr.panning) {
                     ctx->usr.x_offset += event.motion.xrel;
                     ctx->usr.y_offset += event.motion.yrel;
@@ -202,13 +208,13 @@ void process_events(AppContext *ctx, Image *image) {
                 }
                 break;
 
-            case SDL_MOUSEWHEEL:
+            case SDL_EVENT_MOUSE_WHEEL:
                 ctx->usr.scale += event.wheel.y * ctx->usr.scale / 10;
                 ctx->usr.scale = clampf(ctx->usr.scale, 0.1, 20);
                 break;
 
-            case SDL_KEYDOWN:
-                switch(event.key.keysym.sym) {
+            case SDL_EVENT_KEY_DOWN:
+                switch(event.key.key) {
                     case SDLK_MINUS:
                         ctx->usr.scale -= 0.1;
                         break;

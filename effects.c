@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdlib.h>
 
 #include "common.h"
 #include "effects.h"
@@ -27,9 +28,9 @@ void threshold(int *r, int *g, int *b, int threshold, int threshold_mode) {
 
     }
     else if(threshold_mode == 2) {
-        *r = luminance < threshold ? *r : 255;
-        *g = luminance < threshold ? *g : 255;
-        *b = luminance < threshold ? *b : 255;
+        *r = luminance < threshold ? *r : 0;
+        *g = luminance < threshold ? *g : 0;
+        *b = luminance < threshold ? *b : 0;
     }
 }
 
@@ -45,6 +46,10 @@ void quantize(int *r, int *g, int *b, int bit_depth) {
 }
 
 void warp(Image *image, int warp_mode, float sine_length, float sine_amp) {
+    size_t framebuffer_size = image->width * image->height * 3;
+    uint8_t *framebuffer_copy = malloc(framebuffer_size);
+    memcpy(framebuffer_copy, image->framebuffer, framebuffer_size);
+
     for(int y = 0; y < image->height; y++) {
         float sine_offset = 0;
         if(warp_mode == SINE) {
@@ -76,9 +81,9 @@ void warp(Image *image, int warp_mode, float sine_length, float sine_amp) {
             int old_pos = (y * image->width + x) * 3;
             int new_pos = (y_pos * image->width + x_pos) * 3;
 
-            image->framebuffer[old_pos    ] = image->original[new_pos    ];
-            image->framebuffer[old_pos + 1] = image->original[new_pos + 1];
-            image->framebuffer[old_pos + 2] = image->original[new_pos + 2];
+            image->framebuffer[old_pos    ] = framebuffer_copy[new_pos    ];
+            image->framebuffer[old_pos + 1] = framebuffer_copy[new_pos + 1];
+            image->framebuffer[old_pos + 2] = framebuffer_copy[new_pos + 2];
         }
     }
 }
@@ -139,20 +144,14 @@ void dither(Image *image, float brightness, int dither_mode, int bit_depth, int 
     }
 }
 
-void color_shift(int *r, int *g, int *b, float shift) {
-    uint8_t rb = *r;
-    uint8_t gb = *g;
-    uint8_t bb = *b;
+void color_shift(int *r, int *g, int *b, float shift) {    
+    float rb = (float)*r;
+    float gb = (float)*g;
+    float bb = (float)*b;
 
-    if(shift <= 0.5) {
-        *r = (shift * bb) + (1 - shift) * rb;
-        *g = (shift * rb) + (1 - shift) * gb;
-        *b = (shift * gb) + (1 - shift) * bb;
-    } else if(shift > 0.5) {
-        *r = (shift * gb) + (1 - shift) * rb;
-        *g = (shift * bb) + (1 - shift) * gb;
-        *b = (shift * rb) + (1 - shift) * bb;
-    }
+    *r = (shift * bb) + (1 - shift) * rb;
+    *g = (shift * rb) + (1 - shift) * gb;
+    *b = (shift * gb) + (1 - shift) * bb;
 }
 
 void exposure(int *r, int *g, int *b, float exposure_val) {
@@ -216,7 +215,7 @@ void pixelate(Image *image, int pixel_size) {
 void apply_efx(Image *image, EffectFlags *efx, EffectParams *params) {
     memcpy(image->framebuffer, image->original, image->framebuffer_size);
 
-    int pixel_size = (int)(1 + params->pixel_size * 20);
+    int pixel_size = (int)(1 + params->pixel_size * 10);
     int bit_depth = (int)(1 + params->bit_depth * 7);
     float sine_length = (10 + params->sine_length * 400.0f);
     float sine_amp = (params->sine_amp * 200.0f);
@@ -225,6 +224,16 @@ void apply_efx(Image *image, EffectFlags *efx, EffectParams *params) {
     int contrast_val = (int)(((params->contrast_val * 2) - 0.5) * 170);
     float saturation_val = (params->saturation_val * 5.0f);
     float dither_brightness = (0.2f + params->dither_brightness);
+
+    if(efx->warp) {
+        warp(image, params->warp_mode, sine_length, sine_amp);
+    }
+    if(efx->pixelate) {
+        pixelate(image, pixel_size);
+    }
+    if (efx->dither) {
+        dither(image, dither_brightness, params->dither_mode, bit_depth, threshold_val);
+    }
 
     for (int y = 0; y < image->height; y++) { 
         for (int x = 0; x < image->width; x++) {
@@ -235,29 +244,20 @@ void apply_efx(Image *image, EffectFlags *efx, EffectParams *params) {
             int b = image->framebuffer[pixel_pos + 2];
 
             if(efx->mono)        { mono(&r, &g, &b); }
-            if(efx->threshold)   { threshold(&r, &g, &b, threshold_val, params->threshold_mode); }
             if(efx->quantize)    { quantize(&r, &g, &b, bit_depth); }
-            if(efx->exposure)    { exposure(&r, &g, &b, exposure_val); }
             if(efx->contrast)    { contrast(&r, &g, &b, contrast_val); }
             if(efx->saturation)  { saturation(&r, &g, &b, saturation_val); }
+            if(efx->invert)      { invert(&r, &g, &b); }
+            if(efx->exposure)    { exposure(&r, &g, &b, exposure_val); }
+            if(efx->threshold)   { threshold(&r, &g, &b, threshold_val, params->threshold_mode); }
             if(efx->color_bias)  { color_bias(&r, &g, &b, params->color_bias); }
             if(efx->color_shift) { color_shift(&r, &g, &b, params->color_shift_val); }
-            if(efx->invert)      { invert(&r, &g, &b); }
+
 
 
             image->framebuffer[pixel_pos    ] = (Uint8)r;
             image->framebuffer[pixel_pos + 1] = (Uint8)g;
             image->framebuffer[pixel_pos + 2] = (Uint8)b;
         }
-    }
-
-    if(efx->warp) {
-        warp(image, params->warp_mode, sine_length, sine_amp);
-    }
-    if(efx->pixelate) {
-        pixelate(image, pixel_size);
-    }
-    if (efx->dither) {
-        dither(image, dither_brightness, params->dither_mode, bit_depth, threshold_val);
     }
 }

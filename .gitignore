@@ -1,7 +1,9 @@
 ppm-efx
 *.o
-*.d
 .dot
 images
 .DS_Store
+Info.plist
+ppm-efx.icns
+ppm-efx.app
 .vscode

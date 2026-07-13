@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 #include "gui.h"
 
@@ -34,7 +34,7 @@ typedef struct Image {
     size_t framebuffer_size;
     uint8_t *original;
     SDL_Texture *texture;
-    SDL_Rect texture_rect;
+    SDL_FRect texture_rect;
     bool needs_reload;
 } Image;
 
@@ -51,8 +51,8 @@ typedef struct UserParams {
     int y_offset;
     float scale;
     bool panning;
-    int mx;
-    int my;
+    float mx;
+    float my;
 } UserParams;
 
 typedef struct EffectFlags {

@@ -1,4 +1,5 @@
-#include <SDL_ttf.h>
+#include <SDL3_ttf/SDL_ttf.h>
+#include <stdlib.h>
 
 #include "common.h"
 #include "file_io.h"
@@ -30,15 +31,27 @@ SDL_Texture *get_cached_text(SDL_Renderer *renderer, int *w, int *h, SDL_Color f
 void draw_debug_info(AppContext *ctx, Image *image);
 
 int init_gui(AppContext *ctx, Image *image) {
-    if(TTF_Init() != 0) {
-        fprintf(stderr, "Failed to initialize SDL2_TTF%s\n", SDL_GetError());
+    if(!TTF_Init()) {
+        fprintf(stderr, "Failed to initialize SDL3_TTF: %s\n", SDL_GetError());
         return 1;
     }
 
-    font_15 = TTF_OpenFont("Aldrich-Regular.ttf", 15);
+    const char *base_path = SDL_GetBasePath();
+    const char *font_name = "Aldrich-Regular.ttf";
+    size_t font_path_len = strlen(base_path) + strlen(font_name) + 1;
+
+    char *font_path = malloc(font_path_len);
+    if(font_path == NULL) { return 1; }
+
+    snprintf(font_path, font_path_len, "%s%s", base_path, font_name);
+    font_15 = TTF_OpenFont(font_path, 15);
+
     if(font_15 == NULL) {
-        fprintf(stderr, "Failed to open TTF font%s\n", SDL_GetError());
+        fprintf(stderr, "Failed to load the font: %s\n", SDL_GetError());
+        free(font_path);
+        return 1;
     }
+    free(font_path);
 
     // Top bar buttons
     #define TOP_X (MARGIN_X / 2)
@@ -232,7 +245,7 @@ void render_gui(AppContext *ctx, Image *image) {
 
 void process_gui_events(SDL_Event *event, AppContext *ctx) {
     switch(event->type) {
-        case SDL_MOUSEMOTION: {
+        case SDL_EVENT_MOUSE_MOTION: {
             SDL_Point mouse_pos = {ctx->usr.mx, ctx->usr.my};
 
             for(int i = 0; i < NUM_BUTTONS; i++) {
@@ -279,7 +292,7 @@ void process_gui_events(SDL_Event *event, AppContext *ctx) {
             break;
         }
 
-        case SDL_MOUSEBUTTONDOWN:
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
             if(event->button.button == SDL_BUTTON_LEFT) {
                 for(int i = 0; i < NUM_BUTTONS; i++) {
                     if(ctx->gui.buttons[i].hovered) {
@@ -296,7 +309,7 @@ void process_gui_events(SDL_Event *event, AppContext *ctx) {
                 }
             }
             break;
-        case SDL_MOUSEBUTTONUP:
+        case SDL_EVENT_MOUSE_BUTTON_UP:
             if(event->button.button == SDL_BUTTON_LEFT) {
                 for(int i = 0; i < NUM_SLIDERS; i++) {
                     if(ctx->gui.sliders[i].sliding) {
@@ -311,21 +324,21 @@ void process_gui_events(SDL_Event *event, AppContext *ctx) {
 void draw_static_text(SDL_Renderer *renderer, int x, int y, SDL_Color font_color, char *text) {
     int w, h;
     SDL_Texture *texture = get_cached_text(renderer, &w, &h, font_color, text);
-    SDL_Rect rect = {x, y, w, h};
-    SDL_RenderCopy(renderer, texture, NULL, &rect);
+    SDL_FRect rect = {x, y, w, h};
+    SDL_RenderTexture(renderer, texture, NULL, &rect);
 }
 
 void draw_dynamic_text(SDL_Renderer *renderer, int x, int y, SDL_Color font_color, char *text) {
-    SDL_Surface *surface = TTF_RenderText_Blended(font_15, text, font_color);
+    SDL_Surface *surface = TTF_RenderText_Blended(font_15, text, 0, font_color);
     SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
 
     int text_w = surface->w;
     int text_h = surface->h;
 
-    SDL_Rect rect = {x, y, text_w, text_h};
-    SDL_RenderCopy(renderer, texture, NULL, &rect);
+    SDL_FRect rect = {x, y, text_w, text_h};
+    SDL_RenderTexture(renderer, texture, NULL, &rect);
 
-    SDL_FreeSurface(surface);
+    SDL_DestroySurface(surface);
     SDL_DestroyTexture(texture);
 }
 
@@ -338,13 +351,13 @@ SDL_Texture *get_cached_text(SDL_Renderer *renderer, int *w, int *h, SDL_Color f
         }
     }
 
-    SDL_Surface *surface = TTF_RenderText_Blended(font_15, text, font_color);
+    SDL_Surface *surface = TTF_RenderText_Blended(font_15, text, 0, font_color);
     SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
 
     int text_w = surface->w;
     int text_h = surface->h;
 
-    SDL_FreeSurface(surface);
+    SDL_DestroySurface(surface);
 
     if(num_cached_text < TEXT_CACHE_MAX) {
         CachedText *entry = &text_cache[num_cached_text++];
@@ -359,8 +372,8 @@ SDL_Texture *get_cached_text(SDL_Renderer *renderer, int *w, int *h, SDL_Color f
 
 
 void draw_button(SDL_Renderer *renderer, Button *button) {
-    SDL_Rect border_rect = {button->x, button->y, button->w, button->h};
-    SDL_Rect button_rect = {button->x + 3, button->y + 3, button->w - 6, button->h - 6};
+    SDL_FRect border_rect = {button->x, button->y, button->w, button->h};
+    SDL_FRect button_rect = {button->x + 3, button->y + 3, button->w - 6, button->h - 6};
 
     SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
     SDL_RenderFillRect(renderer, &border_rect);
@@ -383,16 +396,16 @@ void draw_button(SDL_Renderer *renderer, Button *button) {
     SDL_RenderFillRect(renderer, &button_rect);
 
     int text_w, text_h;
-    TTF_SizeText(font_15, button->text, &text_w, &text_h);
+    TTF_GetStringSize(font_15, button->text, 0, &text_w, &text_h);
     draw_static_text(renderer, (button->x + button->w / 2) - (text_w / 2), (button->y + button->h / 2) - (text_h / 2), WHITE, button->text);
 }
 
 void draw_slider(SDL_Renderer *renderer, Slider *slider) {
     float *slider_val = (float *)slider->data;
 
-    SDL_Rect border_rect = {slider->x, slider->y, slider->w, slider->h};
-    SDL_Rect bg_rect = {slider->x + 3, slider->y + 3, slider->w - 6, slider->h - 6};
-    SDL_Rect slider_rect = {bg_rect.x, bg_rect.y, bg_rect.w * *slider_val, bg_rect.h};
+    SDL_FRect border_rect = {slider->x, slider->y, slider->w, slider->h};
+    SDL_FRect bg_rect = {slider->x + 3, slider->y + 3, slider->w - 6, slider->h - 6};
+    SDL_FRect slider_rect = {bg_rect.x, bg_rect.y, bg_rect.w * *slider_val, bg_rect.h};
 
     SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
     SDL_RenderFillRect(renderer, &border_rect);
@@ -404,7 +417,7 @@ void draw_slider(SDL_Renderer *renderer, Slider *slider) {
     SDL_RenderFillRect(renderer, &slider_rect);
 
     int text_w, text_h;
-    TTF_SizeText(font_15, slider->text, &text_w, &text_h);
+    TTF_GetStringSize(font_15, slider->text, 0, &text_w, &text_h);
     draw_static_text(renderer, (slider->x + slider->w / 2) - (text_w / 2), (slider->y + slider->h / 2) - (text_h / 2), WHITE, slider->text);
 }
 
@@ -427,12 +440,12 @@ void draw_debug_info(AppContext *ctx, Image *image) {
     DRAW_DEBUG_INFO("Original Width: %d",  image->width);
     DRAW_DEBUG_INFO("Original Height: %d", image->height);
 
-    DRAW_DEBUG_INFO("Current Width: %d", image->texture_rect.w);
-    DRAW_DEBUG_INFO("Current Height: %d", image->texture_rect.h);
+    DRAW_DEBUG_INFO("Current Width: %.0f", image->texture_rect.w);
+    DRAW_DEBUG_INFO("Current Height: %.0f", image->texture_rect.h);
 
-    DRAW_DEBUG_INFO("X Position: %d", image->texture_rect.x);
-    DRAW_DEBUG_INFO("Y Position: %d", image->texture_rect.y);
+    DRAW_DEBUG_INFO("X Position: %.0f", image->texture_rect.x);
+    DRAW_DEBUG_INFO("Y Position: %.0f", image->texture_rect.y);
 
-    DRAW_DEBUG_INFO("Mouse X: %d", ctx->usr.mx);
-    DRAW_DEBUG_INFO("Mouse Y: %d", ctx->usr.my);
+    DRAW_DEBUG_INFO("Mouse X: %.0f", ctx->usr.mx);
+    DRAW_DEBUG_INFO("Mouse Y: %.0f", ctx->usr.my);
 }

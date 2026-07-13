@@ -33,7 +33,7 @@ void *load_image(void *data) {
         image->framebuffer = NULL;
     }
     if (image->original) {
-        free(image->original);
+        stbi_image_free(image->original);
         image->original = NULL;
     }
 
@@ -47,6 +47,7 @@ void *load_image(void *data) {
     if(image->original == NULL) {
         free(image->path);
         image->path = NULL;
+        return NULL;
     }
 
     // Allocating the framebuffer
@@ -54,9 +55,9 @@ void *load_image(void *data) {
     image->framebuffer = malloc(image->framebuffer_size);
     if(image->framebuffer == NULL) {
         free(image->path);
-        free(image->original);
+        stbi_image_free(image->original);
         image->path = NULL;
-        image->framebuffer = NULL;
+        image->original = NULL;
         return NULL;
     }
     memcpy(image->framebuffer, image->original, image->framebuffer_size);
