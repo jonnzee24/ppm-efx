@@ -1,5 +1,6 @@
 ppm-efx
 *.o
+*.d
 .dot
 images
 .DS_Store

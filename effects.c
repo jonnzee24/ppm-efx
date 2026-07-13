@@ -1,66 +1,7 @@
 #include <math.h>
+
+#include "common.h"
 #include "effects.h"
-
-int clamp(int value, int min, int max) {
-    const int t = value < min ? min : value;
-    return t > max ? max : t;
-}
-
-float clampf(float value, float min, float max) {
-    const float t = value < min ? min : value;
-    return t > max ? max : t;
-}
-
-void warp(Uint8 *framebuffer, int width, int height, int option, float sine_lenght, float amplitude) {
-    // create copy of framebuffer to read from
-    size_t buffer_size = width * height * 3;
-    Uint8 *original = malloc(buffer_size);
-    if(original == NULL) {
-        perror("Failed to allocate memory");
-    }
-    memcpy(original, framebuffer, buffer_size);
-
-    for(int y = 0; y < height; y++) {
-        // Sine wave for option 4
-        float sine_offset = 0;
-        if(option == 4) {
-            sine_offset = sin((2.0f * M_PI * y) / sine_lenght) * amplitude;
-        }
-
-        for(int x = 0; x < width; x++) {
-            int x_pos = x;
-            int y_pos = y;
-
-            if(x > width / 2 && option == 1) {
-                x_pos = width - x;
-                y_pos = y;
-            } 
-            if(y > height / 2 && option == 2) {
-                y_pos = height - y;
-            } 
-            if(option == 3) {
-                x_pos = width - x;
-                y_pos = height - y;
-            } 
-            if(option == 4) {
-                x_pos += sine_offset;
-            }
-
-            x_pos = x_pos > width - 1 ? width - 1 : x_pos;
-            x_pos = x_pos < 0 ? 0 : x_pos;
-            y_pos = y_pos > height - 1 ? height - 1 : y_pos;
-            y_pos = y_pos < 0 ? 0 : y_pos;
-
-            int old_pos = (y * width + x) * 3;
-            int new_pos = (y_pos * width + x_pos) * 3;
-
-            framebuffer[old_pos    ] = original[new_pos    ];
-            framebuffer[old_pos + 1] = original[new_pos + 1];
-            framebuffer[old_pos + 2] = original[new_pos + 2];
-        }
-    }
-    free(original);
-}
 
 void invert(int *r, int *g, int *b) {
     *r = 255 - *r;
@@ -68,100 +9,149 @@ void invert(int *r, int *g, int *b) {
     *b = 255 - *b;
 }
 
-void monochrome(int *r, int *g, int *b, bool do_threshold, int threshold) {
-    Uint8 luminance = (*r + *g + *b) / 3;
-    
-    *r = luminance;
-    *g = luminance;
-    *b = luminance;
+void mono(int *r, int *g, int *b) {
+    uint8_t luminance = (*r + *g + *b) / 3;
+    *r = *g = *b = luminance;
+}
 
-    if(do_threshold) {
-        *r = *r > threshold ? 255 : 0;
-        *g = *g > threshold ? 255 : 0;
-        *b = *b > threshold ? 255 : 0;
+void threshold(int *r, int *g, int *b, int threshold, int threshold_mode) {
+    uint8_t luminance = (*r + *g + *b) / 3;
+
+    if(threshold_mode == 0) {
+        *r = *g = *b = luminance < threshold ? 0 : 255;
+    }
+    else if(threshold_mode == 1) {
+        *r = luminance < threshold ? 0 : *r;
+        *g = luminance < threshold ? 0 : *g;
+        *b = luminance < threshold ? 0 : *b;
+
+    }
+    else if(threshold_mode == 2) {
+        *r = luminance < threshold ? *r : 255;
+        *g = luminance < threshold ? *g : 255;
+        *b = luminance < threshold ? *b : 255;
     }
 }
 
 void quantize(int *r, int *g, int *b, int bit_depth) {
-    int levels = 1 << bit_depth;
-    int colors_amount = 256 / levels;
+    int levels = 1 << bit_depth; // 2 to the power of bit depth.
+                                 // n bits can store 2 to the power of n values.
 
-    *r = ((*r / colors_amount) * 255) / (levels - 1);
-    *g = ((*g / colors_amount) * 255) / (levels - 1);
-    *b = ((*b / colors_amount) * 255) / (levels - 1);
+    int bucket_size = 256 / levels; // how many values are in each level
+
+    *r = ((*r / bucket_size) * 255) / (levels - 1);
+    *g = ((*g / bucket_size) * 255) / (levels - 1);
+    *b = ((*b / bucket_size) * 255) / (levels - 1);
 }
 
-void dither(Uint8 *framebuffer, int width, int height, float brightness) {
-    for(int y = 0; y < height; y++) {
-        for(int x = 0; x < width; x++) {
-            int pixel_pos = (y * width + x) * 3;
+void warp(Image *image, int warp_mode, float sine_length, float sine_amp) {
+    for(int y = 0; y < image->height; y++) {
+        float sine_offset = 0;
+        if(warp_mode == SINE) {
+            sine_offset = sin((2.0f * M_PI * y) / sine_length) * sine_amp;
+        }
 
-            framebuffer[pixel_pos    ] = framebuffer[pixel_pos    ] * brightness;
-            framebuffer[pixel_pos + 1] = framebuffer[pixel_pos + 1] * brightness;
-            framebuffer[pixel_pos + 2] = framebuffer[pixel_pos + 2] * brightness;
+        for(int x = 0; x < image->width; x++) {
+            int x_pos = x;
+            int y_pos = y;
 
-            int op_r = framebuffer[pixel_pos    ];
-            int op_g = framebuffer[pixel_pos + 1];
-            int op_b = framebuffer[pixel_pos + 2];
+            if(x > image->width / 2 && warp_mode == MIRROR_X) {
+                x_pos = image->width - x;
+                y_pos = y;
+            } 
+            if(y > image->height / 2 && warp_mode == MIRROR_Y) {
+                y_pos = image->height - y;
+            } 
+            if(warp_mode == UPSIDE_DOWN) {
+                x_pos = image->width - x;
+                y_pos = image->height - y;
+            } 
+            if(warp_mode == SINE) {
+                x_pos += sine_offset;
+            }
+
+            x_pos = clamp(x_pos, 0, image->width - 1);
+            y_pos = clamp(y_pos, 0, image->height - 1);
+
+            int old_pos = (y * image->width + x) * 3;
+            int new_pos = (y_pos * image->width + x_pos) * 3;
+
+            image->framebuffer[old_pos    ] = image->original[new_pos    ];
+            image->framebuffer[old_pos + 1] = image->original[new_pos + 1];
+            image->framebuffer[old_pos + 2] = image->original[new_pos + 2];
+        }
+    }
+}
+
+void dither(Image *image, float brightness, int dither_mode, int bit_depth, int threshold_val) {
+    uint8_t *fb = image->framebuffer;
+    const int stride = image->width * 3;
+    threshold_val = clamp(threshold_val, 40, 200);
+
+    for(int y = 0; y < image->height; y++) {
+        for(int x = 0; x < image->width; x++) {
+
+            int pixel_pos = (y * image->width + x) * 3;
+
+            fb[pixel_pos    ] = fb[pixel_pos    ] * brightness;
+            fb[pixel_pos + 1] = fb[pixel_pos + 1] * brightness;
+            fb[pixel_pos + 2] = fb[pixel_pos + 2] * brightness;
+
+            int op_r = fb[pixel_pos    ];
+            int op_g = fb[pixel_pos + 1];
+            int op_b = fb[pixel_pos + 2];
 
             int qp_r = op_r;
             int qp_g = op_g;
             int qp_b = op_b;
 
-            monochrome(&qp_r, &qp_g, &qp_b, true, 120);
+            if(dither_mode == 0) { threshold(&qp_r, &qp_g, &qp_b, threshold_val, 0); }
+            else if(dither_mode == 1) { quantize(&qp_r, &qp_g, &qp_b, bit_depth); }
+            else if(dither_mode == 2) { threshold(&qp_r, &qp_g, &qp_b, threshold_val, 1); }
 
-            framebuffer[pixel_pos    ] = qp_r;
-            framebuffer[pixel_pos + 1] = qp_g;
-            framebuffer[pixel_pos + 2] = qp_b;
+            fb[pixel_pos    ] = qp_r;
+            fb[pixel_pos + 1] = qp_g;
+            fb[pixel_pos + 2] = qp_b;
 
             int error_r = op_r - qp_r;
             int error_g = op_g - qp_g;
             int error_b = op_b - qp_b;
+
+            int errors[3] = {error_r, error_g, error_b};
             
             for(int i = 0; i < 3; i++) {
-                int error;
-                switch(i) {
-                    case 0:
-                        error = error_r;
-                        break;
-                    case 1:
-                        error = error_g;
-                        break;
-                    case 2:
-                        error = error_b;
-                        break;
-                }
+                int error = errors[i];
                 
-                if(x != width - 1) {
-                    framebuffer[(pixel_pos + i + 3)] = clamp((framebuffer[(pixel_pos + i + 3)] + (error * 7) / 16), 0, 255);
+                if(x != image->width - 1) {
+                    fb[(pixel_pos + i + 3)] = clamp((fb[(pixel_pos + i + 3)] + (error * 7) / 16), 0, 255);
                 }
-                if(x != 0 && y != height - 1) {
-                    framebuffer[(pixel_pos + i - 3) + width * 3] = clamp((framebuffer[(pixel_pos + i - 3) + width * 3] + (error * 3) / 16), 0, 255);
+                if(x != 0 && y != image->height - 1) {
+                    fb[(pixel_pos + i - 3) + stride] = clamp((fb[(pixel_pos + i - 3) + stride] + (error * 3) / 16), 0, 255);
                 }
-                if(y != height - 1) {
-                    framebuffer[(pixel_pos + i) + width * 3] = clamp((framebuffer[(pixel_pos + i) + width * 3] + (error * 5) / 16), 0, 255);
+                if(y != image->height - 1) {
+                    fb[(pixel_pos + i) + stride] = clamp((fb[(pixel_pos + i) + stride] + (error * 5) / 16), 0, 255);
                 }
-                if(y != height - 1 && x != width - 1) {
-                    framebuffer[(pixel_pos + i + 3) + width * 3] = clamp((framebuffer[(pixel_pos + i + 3) + width * 3] + (error * 1) / 16), 0, 255);
+                if(y != image->height - 1 && x != image->width - 1) {
+                    fb[(pixel_pos + i + 3) + stride] = clamp((fb[(pixel_pos + i + 3) + stride] + (error * 1) / 16), 0, 255);
                 }
             }
         }
     }
 }
 
-void shift(int *r, int *g, int *b, float color_shift) {
-    Uint8 rb = *r;
-    Uint8 gb = *g;
-    Uint8 bb = *b;
+void color_shift(int *r, int *g, int *b, float shift) {
+    uint8_t rb = *r;
+    uint8_t gb = *g;
+    uint8_t bb = *b;
 
-    if(color_shift <= 0.5) {
-        *r = (color_shift * bb) + (1 - color_shift) * rb;
-        *g = (color_shift * rb) + (1 - color_shift) * gb;
-        *b = (color_shift * gb) + (1 - color_shift) * bb;
-    } else if(color_shift > 0.5) {
-        *r = (color_shift * gb) + (1 - color_shift) * rb;
-        *g = (color_shift * bb) + (1 - color_shift) * gb;
-        *b = (color_shift * rb) + (1 - color_shift) * bb;
+    if(shift <= 0.5) {
+        *r = (shift * bb) + (1 - shift) * rb;
+        *g = (shift * rb) + (1 - shift) * gb;
+        *b = (shift * gb) + (1 - shift) * bb;
+    } else if(shift > 0.5) {
+        *r = (shift * gb) + (1 - shift) * rb;
+        *g = (shift * bb) + (1 - shift) * gb;
+        *b = (shift * rb) + (1 - shift) * bb;
     }
 }
 
@@ -172,59 +162,102 @@ void exposure(int *r, int *g, int *b, float exposure_val) {
 }
 
 void contrast(int *r, int *g, int *b, int contrast_val) {
-    int pixel_val = (*r + *g + *b) / 3;
+    float factor = 259.0f * ((contrast_val + 255)) / (255 * (259 - contrast_val));
 
-    if(pixel_val <= 100) {
-        *r = clamp(*r - contrast_val, 0, 255);
-        *g = clamp(*g - contrast_val, 0, 255);
-        *b = clamp(*b - contrast_val, 0, 255);
-    } else if(pixel_val > 140) {
-        *r = clamp(*r + contrast_val, 0, 255);
-        *g = clamp(*g + contrast_val, 0, 255);
-        *b = clamp(*b + contrast_val, 0, 255);
-    }
+    *r = clamp((factor * (*r - 128) + 128), 0, 255);
+    *g = clamp((factor * (*g - 128) + 128), 0, 255);
+    *b = clamp((factor * (*b - 128) + 128), 0, 255);
 }
 
 void saturation(int *r, int *g, int *b, float saturation_val) {
     int gray = (*r + *g + *b) / 3;
 
-    *r = clamp(gray + (int)((*r - gray) * saturation_val), 0, 255);
-    *g = clamp(gray + (int)((*g - gray) * saturation_val), 0, 255);
-    *b = clamp(gray + (int)((*b - gray) * saturation_val), 0, 255);
+    *r = clamp(gray + (*r - gray) * saturation_val, 0, 255);
+    *g = clamp(gray + (*g - gray) * saturation_val, 0, 255);
+    *b = clamp(gray + (*b - gray) * saturation_val, 0, 255);
 }
 
-void colorb(int *r, int *g, int *b, int color_bias) {
-    if(color_bias == 0) {
+void color_bias(int *r, int *g, int *b, int bias) {
+    if(bias == R) {
         *g = *g / 3;
         *b = *b / 3;
-    } else if(color_bias == 1) {
+    } else if(bias == G) {
         *r = *r / 3;
         *b = *b / 3;
-    } else if(color_bias == 2) {
+    } else if(bias == B) {
         *r = *r / 3;
         *g = *g / 3;
     }
 }
 
-void pixelate(Uint8 *framebuffer, int width, int height, int pixel_size) {
-    for(int y = 0; y < height; y += pixel_size) {
-        for(int x = 0; x < width; x += pixel_size) {
-            int pixel_pos = (y * width + x) * 3;
+void pixelate(Image *image, int pixel_size) {
+    for(int y = 0; y < image->height; y += pixel_size) {
+        for(int x = 0; x < image->width; x += pixel_size) {
+            int pixel_pos = (y * image->width + x) * 3;
 
-            int r = framebuffer[pixel_pos];
-            int g = framebuffer[pixel_pos + 1];
-            int b = framebuffer[pixel_pos + 2];
+            int r = image->framebuffer[pixel_pos];
+            int g = image->framebuffer[pixel_pos + 1];
+            int b = image->framebuffer[pixel_pos + 2];
 
-            for(int ph = 0; ph < pixel_size && (ph + y) < height; ph++) {
-                for(int pw = 0; pw < pixel_size && (pw + x) < width; pw++) {
-                    int pixel_pos_2 = pixel_pos + (ph * width + pw) * 3;
-                    if(pixel_pos_2 < width * height * 3) {
-                        framebuffer[pixel_pos_2] = r;
-                        framebuffer[pixel_pos_2 + 1] = g;
-                        framebuffer[pixel_pos_2 + 2] = b;
+            for(int ph = 0; ph < pixel_size && (ph + y) < image->height; ph++) {
+                for(int pw = 0; pw < pixel_size && (pw + x) < image->width; pw++) {
+                    int pixel_pos_2 = pixel_pos + (ph * image->width + pw) * 3;
+                    if(pixel_pos_2 < image->width * image->height * 3) {
+                        image->framebuffer[pixel_pos_2] = r;
+                        image->framebuffer[pixel_pos_2 + 1] = g;
+                        image->framebuffer[pixel_pos_2 + 2] = b;
                     }
                 }
             }
         }
+    }
+}
+
+void apply_efx(Image *image, EffectFlags *efx, EffectParams *params) {
+    memcpy(image->framebuffer, image->original, image->framebuffer_size);
+
+    int pixel_size = (int)(1 + params->pixel_size * 20);
+    int bit_depth = (int)(1 + params->bit_depth * 7);
+    float sine_length = (10 + params->sine_length * 400.0f);
+    float sine_amp = (params->sine_amp * 200.0f);
+    int threshold_val = (int)(params->threshold_val * 255);
+    float exposure_val = (params->exposure_val * 3.0f);
+    int contrast_val = (int)(((params->contrast_val * 2) - 0.5) * 170);
+    float saturation_val = (params->saturation_val * 5.0f);
+    float dither_brightness = (0.2f + params->dither_brightness);
+
+    for (int y = 0; y < image->height; y++) { 
+        for (int x = 0; x < image->width; x++) {
+            int pixel_pos = (y * image->width + x) * 3;
+
+            int r = image->framebuffer[pixel_pos    ];
+            int g = image->framebuffer[pixel_pos + 1];
+            int b = image->framebuffer[pixel_pos + 2];
+
+            if(efx->mono)        { mono(&r, &g, &b); }
+            if(efx->threshold)   { threshold(&r, &g, &b, threshold_val, params->threshold_mode); }
+            if(efx->quantize)    { quantize(&r, &g, &b, bit_depth); }
+            if(efx->exposure)    { exposure(&r, &g, &b, exposure_val); }
+            if(efx->contrast)    { contrast(&r, &g, &b, contrast_val); }
+            if(efx->saturation)  { saturation(&r, &g, &b, saturation_val); }
+            if(efx->color_bias)  { color_bias(&r, &g, &b, params->color_bias); }
+            if(efx->color_shift) { color_shift(&r, &g, &b, params->color_shift_val); }
+            if(efx->invert)      { invert(&r, &g, &b); }
+
+
+            image->framebuffer[pixel_pos    ] = (Uint8)r;
+            image->framebuffer[pixel_pos + 1] = (Uint8)g;
+            image->framebuffer[pixel_pos + 2] = (Uint8)b;
+        }
+    }
+
+    if(efx->warp) {
+        warp(image, params->warp_mode, sine_length, sine_amp);
+    }
+    if(efx->pixelate) {
+        pixelate(image, pixel_size);
+    }
+    if (efx->dither) {
+        dither(image, dither_brightness, params->dither_mode, bit_depth, threshold_val);
     }
 }
