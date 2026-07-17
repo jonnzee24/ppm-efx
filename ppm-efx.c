@@ -17,7 +17,7 @@
 bool debug_info = true;
 
 int init_sdl(AppContext *ctx);
-int create_image_texture(SDL_Context *sdl, Image *image);
+int create_image_texture(SDL_Renderer *renderer, Image *image);
 void update(AppContext *ctx, Image *image);
 void render(AppContext *ctx, Image *image);
 void process_events(AppContext *ctx, Image *image);
@@ -60,17 +60,12 @@ int main(void) {
         SDL_GetWindowSize(ctx.sdl.window, &ctx.sdl.win_width, &ctx.sdl.win_height);
         SDL_GetMouseState(&ctx.usr.mx, &ctx.usr.my);
 
-        int max_x = ctx.sdl.image_vp.w * 0.4 * (ctx.usr.scale > 1.0f ? ctx.usr.scale : 1.0f);
-        int max_y = ctx.sdl.image_vp.h * 0.4 * (ctx.usr.scale > 1.0f ? ctx.usr.scale : 1.0f);
-        ctx.usr.x_offset = clamp(ctx.usr.x_offset, -max_x, max_x);
-        ctx.usr.y_offset = clamp(ctx.usr.y_offset, -max_y, max_y);
-
         if(image.needs_reload) {
             if(image.texture) {
                 SDL_DestroyTexture(image.texture);
             }
 
-            if(create_image_texture(&ctx.sdl, &image) != 0) {
+            if(create_image_texture(ctx.sdl.renderer, &image) != 0) {
                 fprintf(stderr, "Failed to create image texture: %s\n", SDL_GetError());
             }
 
@@ -133,8 +128,8 @@ int init_sdl(AppContext *ctx) {
     return 0;
 }
 
-int create_image_texture(SDL_Context *sdl, Image *image) {
-    image->texture = SDL_CreateTexture(sdl->renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, image->width, image->height);
+int create_image_texture(SDL_Renderer *renderer, Image *image) {
+    image->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, image->width, image->height);
     SDL_SetTextureScaleMode(image->texture, SDL_SCALEMODE_NEAREST);
     if(image->texture == NULL) { return 1; }
     return 0;
@@ -156,18 +151,20 @@ void render(AppContext *ctx, Image *image) {
     SDL_RenderFillRect(ctx->sdl.renderer, (SDL_FRect *)&ctx->sdl.image_vp);
     
     render_gui(ctx);
-    if(debug_info) { draw_debug_info(ctx, image); }
 
     if(ctx->state.image_loaded) {
         image->texture_rect.w = image->width  * ctx->usr.scale;
         image->texture_rect.h = image->height * ctx->usr.scale;
-        image->texture_rect.x = (ctx->sdl.image_vp.w / 2) - (image->texture_rect.w / 2) + ctx->usr.x_offset;
-        image->texture_rect.y = (ctx->sdl.image_vp.h / 2) - (image->texture_rect.h / 2) + ctx->usr.y_offset;
+        image->texture_rect.x = (ctx->sdl.win_width  / 2) - (image->texture_rect.w / 2) + ctx->usr.x_offset;
+        image->texture_rect.y = (ctx->sdl.win_height / 2) - (image->texture_rect.h / 2) + ctx->usr.y_offset;
 
-        SDL_SetRenderViewport(ctx->sdl.renderer, &ctx->sdl.image_vp);
+        SDL_SetRenderClipRect(ctx->sdl.renderer, &ctx->sdl.image_vp);
         SDL_RenderTexture(ctx->sdl.renderer, image->texture, NULL, &image->texture_rect);
+        SDL_SetRenderClipRect(ctx->sdl.renderer, NULL);
     }
-    SDL_SetRenderViewport(ctx->sdl.renderer, NULL);
+
+    if(debug_info) { draw_debug_info(ctx, image); }
+
     SDL_RenderPresent(ctx->sdl.renderer);
 }
 
@@ -190,8 +187,8 @@ void process_events(AppContext *ctx, Image *image) {
                     SDL_Point mouse_pos = {ctx->usr.mx, ctx->usr.my};
 
                     SDL_Rect image_box = {
-                        image->texture_rect.x + (MARGIN_X * 0.5),
-                        image->texture_rect.y + (MARGIN_Y * 0.5),
+                        image->texture_rect.x,
+                        image->texture_rect.y,
                         image->texture_rect.w,
                         image->texture_rect.h
                     };
@@ -208,17 +205,17 @@ void process_events(AppContext *ctx, Image *image) {
                 }
                 break;
 
-            case SDL_EVENT_MOUSE_MOTION:
+            case SDL_EVENT_MOUSE_MOTION: {
                 if(ctx->usr.panning) {
                     ctx->usr.x_offset += event.motion.xrel;
                     ctx->usr.y_offset += event.motion.yrel;
                 }
                 break;
+            }
 
             case SDL_EVENT_MOUSE_WHEEL:
                 ctx->usr.scale += event.wheel.y * 0.3 * ctx->usr.scale / 10;
-                ctx->usr.scale = clampf(ctx->usr.scale, 0.1, 20);
-
+                ctx->usr.scale = clampf(ctx->usr.scale, 0.1, 100);
                 break;
 
             case SDL_EVENT_KEY_DOWN:

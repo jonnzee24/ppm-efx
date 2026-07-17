@@ -408,18 +408,19 @@ void draw_debug_info(AppContext *ctx, Image *image) {
 
     DRAW_DEBUG_INFO("Scale: %.2f", ctx->usr.scale);
 
-    DRAW_DEBUG_INFO("Original Width: %d",  image->width);
-    DRAW_DEBUG_INFO("Original Height: %d", image->height);
+    DRAW_DEBUG_INFO("Image Width: %d",  image->width);
+    DRAW_DEBUG_INFO("Image Height: %d", image->height);
 
-    DRAW_DEBUG_INFO("Current Width: %.0f", image->texture_rect.w);
-    DRAW_DEBUG_INFO("Current Height: %.0f", image->texture_rect.h);
-
-    DRAW_DEBUG_INFO("X Position: %.0f", image->texture_rect.x);
-    DRAW_DEBUG_INFO("Y Position: %.0f", image->texture_rect.y);
+    DRAW_DEBUG_INFO("texture_rect.x: %.0f", image->texture_rect.x);
+    DRAW_DEBUG_INFO("texture_rect.y: %.0f", image->texture_rect.y);
+    DRAW_DEBUG_INFO("texture_rect.w: %.0f", image->texture_rect.w);
+    DRAW_DEBUG_INFO("texture_rect.h: %.0f", image->texture_rect.h);
 
     DRAW_DEBUG_INFO("Usr X Offset: %.0f", ctx->usr.x_offset);
     DRAW_DEBUG_INFO("Usr Y Offset: %.0f", ctx->usr.y_offset);
 
-    DRAW_DEBUG_INFO("Mouse X: %.0f", ctx->usr.mx);
-    DRAW_DEBUG_INFO("Mouse Y: %.0f", ctx->usr.my);
+    DRAW_DEBUG_INFO("Image VP X: %d", ctx->sdl.image_vp.x);
+    DRAW_DEBUG_INFO("Image VP Y: %d", ctx->sdl.image_vp.y);
+    DRAW_DEBUG_INFO("Image VP W: %d", ctx->sdl.image_vp.w);
+    DRAW_DEBUG_INFO("Image VP H: %d", ctx->sdl.image_vp.h);
 }

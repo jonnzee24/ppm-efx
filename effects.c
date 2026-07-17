@@ -211,44 +211,45 @@ void pixelate(Image *image, int pixel_size) {
     }
 }
 
-
-void blur2(Image *image, int size) {
-    int width  = image->width;
+void blur(Image *image, int size) {
+    int width = image->width;
     int height = image->height;
 
-    for (int y = 0; y < height; y++) {
+    // Horizontal pass
+    for(int y = 0; y < height; y++) {
         int row_start = y * width * 3;
         int r_sum = 0, g_sum = 0, b_sum = 0, count = 0;
- 
-        for (int i = -size; i <= size; i++) {
-            if (i >= 0 && i < width) {
-                int p = row_start + i * 3;
+
+        // Initial window
+        for(int i = -size; i <= size; i++) {
+            int p = row_start + (i * 3);
+            if(i >= 0 && i < width) {
                 r_sum += image->framebuffer[p    ];
                 g_sum += image->framebuffer[p + 1];
                 b_sum += image->framebuffer[p + 2];
                 count++;
             }
         }
- 
-        for (int x = 0; x < width; x++) {
-            int pixel_pos = row_start + x * 3;
- 
-            image->scratch[pixel_pos    ] = r_sum / count;
-            image->scratch[pixel_pos + 1] = g_sum / count;
-            image->scratch[pixel_pos + 2] = b_sum / count;
- 
+
+        for(int x = 0; x < width; x++) {
+            int p = row_start + (x * 3);
+
+            image->scratch[p    ] = r_sum / count;
+            image->scratch[p + 1] = g_sum / count;
+            image->scratch[p + 2] = b_sum / count;
+
             int leaving  = x - size;
             int entering = x + size + 1;
- 
-            if (leaving >= 0 && leaving < width) {
-                int p = row_start + leaving * 3;
+
+            if(leaving >= 0) {
+                int p = row_start + (leaving * 3);
                 r_sum -= image->framebuffer[p    ];
                 g_sum -= image->framebuffer[p + 1];
                 b_sum -= image->framebuffer[p + 2];
                 count--;
             }
-            if (entering >= 0 && entering < width) {
-                int p = row_start + entering * 3;
+            if(entering < width) {
+                int p = row_start + (entering * 3);
                 r_sum += image->framebuffer[p    ];
                 g_sum += image->framebuffer[p + 1];
                 b_sum += image->framebuffer[p + 2];
@@ -257,114 +258,47 @@ void blur2(Image *image, int size) {
         }
     }
 
-    for (int x = 0; x < width; x++) {
+    // Vertical pass
+    for(int x = 0; x < width; x++) {
         int col_start = x * 3;
         int stride = width * 3;
         int r_sum = 0, g_sum = 0, b_sum = 0, count = 0;
- 
-        for (int i = -size; i <= size; i++) {
-            if (i >= 0 && i < height) {
-                int p = col_start + i * stride;
+
+        // Initial window
+        for(int i = -size; i <= size; i++) {
+            int p = col_start + (i * stride);
+            if(i >= 0 && i < height) {
                 r_sum += image->scratch[p    ];
                 g_sum += image->scratch[p + 1];
                 b_sum += image->scratch[p + 2];
                 count++;
             }
         }
- 
-        for (int y = 0; y < height; y++) {
-            int pixel_pos = col_start + y * stride;
- 
-            image->framebuffer[pixel_pos    ] = r_sum / count;
-            image->framebuffer[pixel_pos + 1] = g_sum / count;
-            image->framebuffer[pixel_pos + 2] = b_sum / count;
- 
+
+        for(int y = 0; y < height; y++) {
+            int p = col_start + (y * stride);
+
+            image->framebuffer[p    ] = r_sum / count;
+            image->framebuffer[p + 1] = g_sum / count;
+            image->framebuffer[p + 2] = b_sum / count;
+
             int leaving  = y - size;
             int entering = y + size + 1;
- 
-            if (leaving >= 0 && leaving < height) {
-                int p = col_start + leaving * stride;
+
+            if(leaving >= 0) {
+                int p = col_start + (leaving * stride);
                 r_sum -= image->scratch[p    ];
                 g_sum -= image->scratch[p + 1];
                 b_sum -= image->scratch[p + 2];
                 count--;
             }
-            if (entering >= 0 && entering < height) {
-                int p = col_start + entering * stride;
+            if(entering < height) {
+                int p = col_start + (entering * stride);
                 r_sum += image->scratch[p    ];
                 g_sum += image->scratch[p + 1];
                 b_sum += image->scratch[p + 2];
                 count++;
             }
-        }
-    }
-}
-
-
-void blur(Image *image, int size) {
-    int r_average = 0;
-    int g_average = 0;
-    int b_average = 0;
-
-    int pixel_pos = 0;
-    int new_pos = 0;
-    int count = 0;
-
-    // Horizontal pass
-    for(int y = 0; y < image->height; y++) {
-        for(int x = 0; x < image->width; x++) {
-            pixel_pos = (y * image->width + x) * 3;
-
-            for(int h = -size; h <= size; h++) {
-                new_pos = pixel_pos + (h * 3);
-
-                if(new_pos >= 0 && new_pos <= (int)image->framebuffer_size - 2) {
-                    r_average += image->framebuffer[new_pos    ];
-                    g_average += image->framebuffer[new_pos + 1];
-                    b_average += image->framebuffer[new_pos + 2];
-
-                    count++;
-                }
-            }
-
-            image->scratch[pixel_pos    ] = r_average / count;
-            image->scratch[pixel_pos + 1] = g_average / count;
-            image->scratch[pixel_pos + 2] = b_average / count;
-
-            r_average = 0;
-            g_average = 0;
-            b_average = 0;
-            
-            count = 0;
-        }
-    }
-
-    // Vertical pass
-    for(int y = 0; y < image->height; y++) {
-        for(int x = 0; x < image->width; x++) {
-            pixel_pos = (y * image->width + x) * 3;
-
-            for(int v = -size; v <= size; v++) {
-                new_pos = pixel_pos + (v * image->width * 3);
-
-                if(new_pos >= 0 && new_pos <= (int)image->framebuffer_size - 2) {
-                    r_average += image->scratch[new_pos    ];
-                    g_average += image->scratch[new_pos + 1];
-                    b_average += image->scratch[new_pos + 2];
-
-                    count++;
-                }
-            }
-
-            image->framebuffer[pixel_pos    ] = r_average / count;
-            image->framebuffer[pixel_pos + 1] = g_average / count;
-            image->framebuffer[pixel_pos + 2] = b_average / count;
-
-            r_average = 0;
-            g_average = 0;
-            b_average = 0;
-            
-            count = 0;
         }
     }
 }
@@ -380,7 +314,7 @@ void apply_efx(Image *image, EffectFlags *efx, EffectParams *params) {
     float exposure_val = (params->exposure_val * 3.0f);
     int contrast_val = (int)(((params->contrast_val * 2) - 0.5) * 170);
     float saturation_val = (params->saturation_val * 5.0f);
-    int blur_size = (int)(params->blur_size * 40.0f);
+    int blur_size = (int)(2 + params->blur_size * 38.0f);
 
     if(efx->warp) {
         warp(image, params->warp_mode, sine_length, sine_amp);
@@ -392,7 +326,7 @@ void apply_efx(Image *image, EffectFlags *efx, EffectParams *params) {
         dither(image, params->dither_mode, bit_depth, threshold_val);
     }
     if(efx->blur) {
-        blur2(image, blur_size);
+        blur(image, blur_size);
     }
 
     for (int y = 0; y < image->height; y++) { 

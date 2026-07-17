@@ -1,6 +1,6 @@
 CC = clang
 CFLAGS = -g -fcolor-diagnostics -std=gnu11 -Wall -Wextra -Werror -I./include `pkg-config --cflags sdl3 sdl3-ttf`
-CFLAGS += -MMD -MP -arch x86_64 -arch arm64
+CFLAGS += -O3 -MMD -MP -arch x86_64 -arch arm64
 LDFLAGS = `pkg-config --libs sdl3 sdl3-ttf` -lm -arch arm64
 
 BUILD_DIR = build
