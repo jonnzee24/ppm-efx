@@ -4,9 +4,6 @@
 #include <SDL3/SDL.h>
 #include <stdbool.h>
 
-#define MARGIN_Y 60
-#define MARGIN_X 400
-
 typedef struct AppContext AppContext;
 typedef struct Image Image;
 
@@ -45,6 +42,7 @@ typedef enum {
     WARP,
     PIXELATE,
     DITHER,
+    BLUR,
 
     NUM_BUTTONS
 } ButtonIDs;
@@ -65,9 +63,9 @@ typedef enum {
     BIT_DEPTH,
     COLOR_SHIFT_VAL,
     PIXEL_SIZE,
-    DITHER_BRIGHTNESS,
     SINE_LENGTH,
     SINE_AMP,
+    BLUR_SIZE,
 
     NUM_SLIDERS
 } SliderIDs;
@@ -80,7 +78,8 @@ typedef struct {
 int init_gui(AppContext *ctx, Image *image);
 void cleanup_gui(void);
 void update_gui(AppContext *ctx);
-void render_gui(AppContext *ctx, Image *image);
+void render_gui(AppContext *ctx);
 void process_gui_events(SDL_Event *event, AppContext *ctx);
+void draw_debug_info(AppContext *ctx, Image *image);
 
 #endif

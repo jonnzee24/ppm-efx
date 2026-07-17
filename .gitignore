@@ -1,9 +1,7 @@
+build
+macos-build
 ppm-efx
-*.o
 .dot
 images
 .DS_Store
-Info.plist
-ppm-efx.icns
-ppm-efx.app
 .vscode

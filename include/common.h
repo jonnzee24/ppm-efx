@@ -7,6 +7,9 @@
 
 #include "gui.h"
 
+#define MARGIN_Y 60
+#define MARGIN_X 400
+
 #define WHITE (SDL_Color){255, 255, 255, 255}
 #define GREY (SDL_Color){120, 120, 120, 255}
 
@@ -33,6 +36,7 @@ typedef struct Image {
     uint8_t *framebuffer;
     size_t framebuffer_size;
     uint8_t *original;
+    uint8_t *scratch;
     SDL_Texture *texture;
     SDL_FRect texture_rect;
     bool needs_reload;
@@ -47,12 +51,11 @@ typedef struct SDL_Context {
 } SDL_Context;
 
 typedef struct UserParams {
-    int x_offset;
-    int y_offset;
+    float x_offset;
+    float y_offset;
     float scale;
     bool panning;
-    float mx;
-    float my;
+    float mx, my;
 } UserParams;
 
 typedef struct EffectFlags {
@@ -68,6 +71,7 @@ typedef struct EffectFlags {
     bool saturation;
     bool color_bias;
     bool color_shift;
+    bool blur;
 } EffectFlags;
 
 typedef struct EffectParams {
@@ -77,24 +81,22 @@ typedef struct EffectParams {
         UPSIDE_DOWN,
         SINE
     } warp_mode;
+    int threshold_mode;
+    int dither_mode;
+        enum {
+        R, G, B
+    } color_bias;
 
     float sine_length;
     float sine_amp;
-    float dither_brightness;
     float pixel_size;
     float threshold_val;
-    int threshold_mode;
     float bit_depth;
     float exposure_val;
     float contrast_val;
     float saturation_val;
     float color_shift_val;
-    int dither_mode;
-
-    enum {
-        R, G, B
-    } color_bias;
-
+    float blur_size;
 } EffectParams;
 
 typedef struct AppContext {

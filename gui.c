@@ -6,7 +6,6 @@
 #include "gui.h"
 
 TTF_Font *font_15 = NULL;
-bool debug_info = true;
 
 typedef struct {
     char text[64];
@@ -28,7 +27,6 @@ void draw_slider(SDL_Renderer *renderer, Slider *slider);
 void draw_static_text(SDL_Renderer *renderer, int x, int y, SDL_Color font_color, char *text);
 void draw_dynamic_text(SDL_Renderer *renderer, int x, int y, SDL_Color font_color, char *text);
 SDL_Texture *get_cached_text(SDL_Renderer *renderer, int *w, int *h, SDL_Color font_color, char *text);
-void draw_debug_info(AppContext *ctx, Image *image);
 
 int init_gui(AppContext *ctx, Image *image) {
     if(!TTF_Init()) {
@@ -70,100 +68,84 @@ int init_gui(AppContext *ctx, Image *image) {
                                              .text = "Quit", .on_click = exit_application, .data = &ctx->state.running};
 
     // Left side effect buttons
-    #define LEFT_X 5
-    #define LEFT_Y (MARGIN_Y / 2)
-    #define LEFT_W ((MARGIN_X / 2) - 10)
-    #define LEFT_H 40
-    #define LEFT_Y_OFFSET (LEFT_H + 10)
-
-    ctx->gui.buttons[SATURATION]  = (Button){ .button_type = EFX_BTN, .x = LEFT_X, .y = LEFT_Y, .w = LEFT_W, .h = LEFT_H,
-                                              .text = "Saturation", .on_click = toggle_efx, .data = &ctx->efx.saturation};
-
-    ctx->gui.buttons[CONTRAST]    = (Button){ .button_type = EFX_BTN, .x = LEFT_X, .y = LEFT_Y + LEFT_Y_OFFSET, .w = LEFT_W, .h = LEFT_H,
-                                              .text = "Contrast", .on_click = toggle_efx, .data = &ctx->efx.contrast};
-
-    ctx->gui.buttons[EXPOSURE]    = (Button){ .button_type = EFX_BTN, .x = LEFT_X, .y = LEFT_Y + 2 * LEFT_Y_OFFSET, .w = LEFT_W, .h = LEFT_H,
-                                              .text = "Exposure", .on_click = toggle_efx, .data = &ctx->efx.exposure};
-
-    ctx->gui.buttons[INVERT]      = (Button){ .button_type = EFX_BTN, .x = LEFT_X, .y = LEFT_Y + 3 * LEFT_Y_OFFSET, .w = LEFT_W, .h = LEFT_H,
-                                              .text = "Invert", .on_click = toggle_efx, .data = &ctx->efx.invert};
-
-    ctx->gui.buttons[MONO]        = (Button){ .button_type = EFX_BTN, .x = LEFT_X, .y = LEFT_Y + 4 * LEFT_Y_OFFSET, .w = LEFT_W, .h = LEFT_H,
-                                              .text = "Monochrome", .on_click = toggle_efx, .data = &ctx->efx.mono};
-
-    ctx->gui.buttons[THRESHOLD]   = (Button){ .button_type = EFX_BTN, .x = LEFT_X, .y = LEFT_Y + 5 * LEFT_Y_OFFSET, .w = LEFT_W, .h = LEFT_H,
-                                              .text = "Threshold", .on_click = toggle_efx, .data = &ctx->efx.threshold};
-
-    ctx->gui.buttons[QUANTIZE]    = (Button){ .button_type = EFX_BTN, .x = LEFT_X, .y = LEFT_Y + 6 * LEFT_Y_OFFSET, .w = LEFT_W, .h = LEFT_H,
-                                              .text = "Quantize", .on_click = toggle_efx, .data = &ctx->efx.quantize};
-
-    ctx->gui.buttons[COLOR_BIAS]  = (Button){ .button_type = EFX_BTN, .x = LEFT_X, .y = LEFT_Y + 7 * LEFT_Y_OFFSET, .w = LEFT_W, .h = LEFT_H,
-                                              .text = "Color Bias", .on_click = toggle_efx, .data = &ctx->efx.color_bias};
-
-    ctx->gui.buttons[COLOR_SHIFT] = (Button){ .button_type = EFX_BTN, .x = LEFT_X, .y = LEFT_Y + 8 * LEFT_Y_OFFSET, .w = LEFT_W, .h = LEFT_H,
-                                              .text = "Color Shift", .on_click = toggle_efx, .data = &ctx->efx.color_shift};
-
-    ctx->gui.buttons[WARP]        = (Button){ .button_type = EFX_BTN, .x = LEFT_X, .y = LEFT_Y + 9 * LEFT_Y_OFFSET, .w = LEFT_W, .h = LEFT_H,
-                                              .text = "Warp", .on_click = toggle_efx, .data = &ctx->efx.warp};
-
-    ctx->gui.buttons[PIXELATE]    = (Button){ .button_type = EFX_BTN, .x = LEFT_X, .y = LEFT_Y + 10 * LEFT_Y_OFFSET, .w = LEFT_W, .h = LEFT_H,
-                                              .text = "Pixelate", .on_click = toggle_efx, .data = &ctx->efx.pixelate};
-
-    ctx->gui.buttons[DITHER]      = (Button){ .button_type = EFX_BTN, .x = LEFT_X, .y = LEFT_Y + 11 * LEFT_Y_OFFSET, .w = LEFT_W, .h = LEFT_H,
-                                              .text = "Dither", .on_click = toggle_efx, .data = &ctx->efx.dither};
+    int y_offset = 0;
+    #define INIT_EFX_BTN(id, string, efxm)                                       \
+            do {                                                                 \
+                ctx->gui.buttons[id] = (Button){ .button_type = EFX_BTN,         \
+                                                 .x = 5,                         \
+                                                 .y = (MARGIN_Y / 2) + y_offset, \
+                                                 .w = (MARGIN_X / 2) -  10,      \
+                                                 .h = 40,                        \
+                                                 .text = string,                 \
+                                                 .on_click = toggle_efx,         \
+                                                 .data = efxm};                  \
+                y_offset += 50;                                                  \
+            } while(0)                                                           \
+    
+    INIT_EFX_BTN(SATURATION, "Saturation", &ctx->efx.saturation);
+    INIT_EFX_BTN(CONTRAST, "Contrast", &ctx->efx.contrast);
+    INIT_EFX_BTN(EXPOSURE, "Exposure", &ctx->efx.exposure);
+    INIT_EFX_BTN(INVERT, "Invert", &ctx->efx.invert);
+    INIT_EFX_BTN(MONO, "Monochrome", &ctx->efx.mono);
+    INIT_EFX_BTN(THRESHOLD, "Threshold", &ctx->efx.threshold);
+    INIT_EFX_BTN(QUANTIZE, "Quantize", &ctx->efx.quantize);
+    INIT_EFX_BTN(COLOR_BIAS, "Color Bias", &ctx->efx.color_bias);
+    INIT_EFX_BTN(COLOR_SHIFT, "Color Shift", &ctx->efx.color_shift);
+    INIT_EFX_BTN(WARP, "Warp", &ctx->efx.warp);
+    INIT_EFX_BTN(PIXELATE, "Pixelate", &ctx->efx.pixelate);
+    INIT_EFX_BTN(DITHER, "Dither", &ctx->efx.dither);
+    INIT_EFX_BTN(BLUR, "Blur", &ctx->efx.blur);
+    
+    #undef INIT_EFX_BTN
     
     // Right side effect parameter sliders
     #define SLIDER_X (ctx->sdl.win_width - (MARGIN_X / 2) + 5)
-    #define SLIDER_Y (MARGIN_Y / 2)
-    #define SLIDER_W ((MARGIN_X / 2) - 10)
-    #define SLIDER_H 30
-    #define SLIDER_Y_OFFSET (SLIDER_H + 10) 
+    #define INIT_EFX_SLIDER(id, string, parameter)                               \
+            do {                                                                 \
+                ctx->gui.sliders[id] = (Slider){.x = SLIDER_X,                   \
+                                                .y = (MARGIN_Y / 2) + y_offset,  \
+                                                .w = (MARGIN_X / 2) - 10,        \
+                                                .h = 30,                         \
+                                                .text = string,                  \
+                                                .data = &ctx->params.parameter}; \
+                y_offset += 40;                                                  \
+            } while(0)                                                           \
+    
+    y_offset = 0;
 
-    ctx->gui.sliders[SATURATION_VAL] = (Slider){.x = SLIDER_X, .y = SLIDER_Y, .w = SLIDER_W, .h = SLIDER_H,
-                                                .text = "Saturation", .data = &ctx->params.saturation_val};
+    INIT_EFX_SLIDER(SATURATION_VAL, "Saturation", saturation_val);
+    INIT_EFX_SLIDER(CONTRAST_VAL, "Contrast", contrast_val);
+    INIT_EFX_SLIDER(EXPOSURE_VAL, "Exposure", exposure_val);
+    INIT_EFX_SLIDER(THRESHOLD_VAL, "Threshold", threshold_val);
+    INIT_EFX_SLIDER(BIT_DEPTH, "Bit Depth", bit_depth);
+    INIT_EFX_SLIDER(COLOR_SHIFT_VAL, "Color Shift", color_shift_val);
+    INIT_EFX_SLIDER(PIXEL_SIZE, "Pixel Size", pixel_size);
+    INIT_EFX_SLIDER(SINE_LENGTH, "Sine Lenght", sine_length);
+    INIT_EFX_SLIDER(SINE_AMP, "Sine Amplitude", sine_amp);
+    INIT_EFX_SLIDER(BLUR_SIZE, "Blur Size", blur_size);
 
-    ctx->gui.sliders[CONTRAST_VAL] = (Slider){.x = SLIDER_X, .y = SLIDER_Y + SLIDER_Y_OFFSET, .w = SLIDER_W, .h = SLIDER_H,
-                                              .text = "Contrast", .data = &ctx->params.contrast_val};
-
-    ctx->gui.sliders[EXPOSURE_VAL] = (Slider){.x = SLIDER_X, .y = SLIDER_Y + 2 * SLIDER_Y_OFFSET, .w = SLIDER_W, .h = SLIDER_H,
-                                              .text = "Exposure", .data = &ctx->params.exposure_val};
-
-    ctx->gui.sliders[THRESHOLD_VAL] = (Slider){.x = SLIDER_X, .y = SLIDER_Y + 3 * SLIDER_Y_OFFSET, .w = SLIDER_W, .h = SLIDER_H,
-                                               .text = "Threshold", .data = &ctx->params.threshold_val};
-
-    ctx->gui.sliders[BIT_DEPTH] = (Slider){.x = SLIDER_X, .y = SLIDER_Y + 4 * SLIDER_Y_OFFSET, .w = SLIDER_W, .h = SLIDER_H,
-                                           .text = "Bit depth", .data = &ctx->params.bit_depth};
-
-    ctx->gui.sliders[COLOR_SHIFT_VAL] = (Slider){.x = SLIDER_X, .y = SLIDER_Y + 5 * SLIDER_Y_OFFSET, .w = SLIDER_W, .h = SLIDER_H,
-                                                 .text = "Color Shift", .data = &ctx->params.color_shift_val};
-
-    ctx->gui.sliders[PIXEL_SIZE] = (Slider){.x = SLIDER_X, .y = SLIDER_Y + 6 * SLIDER_Y_OFFSET, .w = SLIDER_W, .h = SLIDER_H,
-                                            .text = "Pixel size", .data = &ctx->params.pixel_size};
-
-    ctx->gui.sliders[DITHER_BRIGHTNESS] = (Slider){.x = SLIDER_X, .y = SLIDER_Y + 7 * SLIDER_Y_OFFSET, .w = SLIDER_W, .h = SLIDER_H,
-                                                   .text = "Dither brightness", .data = &ctx->params.dither_brightness};
-
-    ctx->gui.sliders[SINE_LENGTH] = (Slider){.x = SLIDER_X, .y = SLIDER_Y + 8 * SLIDER_Y_OFFSET, .w = SLIDER_W, .h = SLIDER_H,
-                                             .text = "Sine length", .data = &ctx->params.sine_length};
-
-    ctx->gui.sliders[SINE_AMP] = (Slider){.x = SLIDER_X, .y = SLIDER_Y + 9 * SLIDER_Y_OFFSET, .w = SLIDER_W, .h = SLIDER_H,
-                                          .text = "Sine amplitude", .data = &ctx->params.sine_amp};
+    #undef INIT_EFX_SLIDER
 
     // Mode change buttons
-    ctx->gui.buttons[WARP_MODE] = (Button){.button_type = GENERIC, .x = SLIDER_X, .y = SLIDER_Y + 10 * SLIDER_Y_OFFSET, .w = SLIDER_W, .h = LEFT_H,
-                                           .text = "Warp mode", .on_click = change_warp_mode, .data = &ctx->params.warp_mode};
+    #define INIT_MODE_BTN(id, string, callback, parameter)                        \
+            do {                                                                  \
+                ctx->gui.buttons[id] = (Button){ .button_type = GENERIC,          \
+                                                 .x = SLIDER_X,                   \
+                                                 .y = (MARGIN_Y / 2) + y_offset,  \
+                                                 .w = (MARGIN_X / 2) -  10,       \
+                                                 .h = 40,                         \
+                                                 .text = string,                  \
+                                                 .on_click = callback,            \
+                                                 .data = &ctx->params.parameter}; \
+                y_offset += 50;                                                   \
+            } while(0)                                                            \
 
-    ctx->gui.buttons[THRESHOLD_MODE] = (Button){.button_type = GENERIC, .x = SLIDER_X, .y = SLIDER_Y + 11 * SLIDER_Y_OFFSET + 10,
-                                                .w = SLIDER_W, .h = LEFT_H,
-                                                .text = "Threshold mode", .on_click = change_mode_3, .data = &ctx->params.threshold_mode};
+    INIT_MODE_BTN(WARP_MODE, "Warp Mode", change_warp_mode, warp_mode);
+    INIT_MODE_BTN(THRESHOLD_MODE, "Threshold Mode", change_mode_3, threshold_mode);
+    INIT_MODE_BTN(COLOR_BIAS_MODE, "Color Bias Mode", change_mode_3, color_bias);
+    INIT_MODE_BTN(DITHER_MODE, "Dither Mode", change_mode_3, dither_mode);
 
-    ctx->gui.buttons[COLOR_BIAS_MODE] = (Button){.button_type = GENERIC, .x = SLIDER_X, .y = SLIDER_Y + 12 * SLIDER_Y_OFFSET + 20, 
-                                                 .w = SLIDER_W, .h = LEFT_H,
-                                                 .text = "Color bias mode", .on_click = change_mode_3, .data = &ctx->params.color_bias};
-
-    ctx->gui.buttons[DITHER_MODE] = (Button){.button_type = GENERIC, .x = SLIDER_X, .y = SLIDER_Y + 13 * SLIDER_Y_OFFSET + 30, 
-                                                 .w = SLIDER_W, .h = LEFT_H,
-                                                 .text = "Dither mode", .on_click = change_mode_3, .data = &ctx->params.dither_mode};
+    #undef INIT_MODE_BTN
 
     return 0;
 }
@@ -214,24 +196,17 @@ void *change_mode_3(void *data) {
 void update_gui(AppContext *ctx) {
     SDL_GetWindowSize(ctx->sdl.window, &ctx->sdl.win_width, &ctx->sdl.win_height);
 
-    // Left side effect buttons
-    // i is 7 to skip the buttons that arent the right side effect buttons
-    for(int i = 7; i < NUM_BUTTONS; i++) {
-        ctx->gui.buttons[i].x = LEFT_X;
-    }
-
     ctx->gui.buttons[WARP_MODE].x = SLIDER_X;
     ctx->gui.buttons[THRESHOLD_MODE].x = SLIDER_X;
     ctx->gui.buttons[COLOR_BIAS_MODE].x = SLIDER_X;
     ctx->gui.buttons[DITHER_MODE].x = SLIDER_X;
 
-    //Right side effect parameter sliders
     for(int i = 0; i < NUM_SLIDERS; i++) {
         ctx->gui.sliders[i].x = SLIDER_X;
     }
 }
 
-void render_gui(AppContext *ctx, Image *image) {
+void render_gui(AppContext *ctx) {
     for(int i = 0; i < NUM_BUTTONS; i++) {
         draw_button(ctx->sdl.renderer, &ctx->gui.buttons[i]);
     }
@@ -239,8 +214,6 @@ void render_gui(AppContext *ctx, Image *image) {
     for(int i = 0; i < NUM_SLIDERS; i++) {
         draw_slider(ctx->sdl.renderer, &ctx->gui.sliders[i]);
     }
-    
-    if(debug_info) { draw_debug_info(ctx, image); }
 }
 
 void process_gui_events(SDL_Event *event, AppContext *ctx) {
@@ -370,7 +343,6 @@ SDL_Texture *get_cached_text(SDL_Renderer *renderer, int *w, int *h, SDL_Color f
     return texture;
 }
 
-
 void draw_button(SDL_Renderer *renderer, Button *button) {
     SDL_FRect border_rect = {button->x, button->y, button->w, button->h};
     SDL_FRect button_rect = {button->x + 3, button->y + 3, button->w - 6, button->h - 6};
@@ -421,7 +393,6 @@ void draw_slider(SDL_Renderer *renderer, Slider *slider) {
     draw_static_text(renderer, (slider->x + slider->w / 2) - (text_w / 2), (slider->y + slider->h / 2) - (text_h / 2), WHITE, slider->text);
 }
 
-
 void draw_debug_info(AppContext *ctx, Image *image) {
     char buffer[32];
     int x = (MARGIN_X / 2) + 10;
@@ -445,6 +416,9 @@ void draw_debug_info(AppContext *ctx, Image *image) {
 
     DRAW_DEBUG_INFO("X Position: %.0f", image->texture_rect.x);
     DRAW_DEBUG_INFO("Y Position: %.0f", image->texture_rect.y);
+
+    DRAW_DEBUG_INFO("Usr X Offset: %.0f", ctx->usr.x_offset);
+    DRAW_DEBUG_INFO("Usr Y Offset: %.0f", ctx->usr.y_offset);
 
     DRAW_DEBUG_INFO("Mouse X: %.0f", ctx->usr.mx);
     DRAW_DEBUG_INFO("Mouse Y: %.0f", ctx->usr.my);

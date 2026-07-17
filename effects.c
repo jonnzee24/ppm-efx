@@ -25,7 +25,6 @@ void threshold(int *r, int *g, int *b, int threshold, int threshold_mode) {
         *r = luminance < threshold ? 0 : *r;
         *g = luminance < threshold ? 0 : *g;
         *b = luminance < threshold ? 0 : *b;
-
     }
     else if(threshold_mode == 2) {
         *r = luminance < threshold ? *r : 0;
@@ -46,9 +45,7 @@ void quantize(int *r, int *g, int *b, int bit_depth) {
 }
 
 void warp(Image *image, int warp_mode, float sine_length, float sine_amp) {
-    size_t framebuffer_size = image->width * image->height * 3;
-    uint8_t *framebuffer_copy = malloc(framebuffer_size);
-    memcpy(framebuffer_copy, image->framebuffer, framebuffer_size);
+    memcpy(image->scratch, image->framebuffer, image->framebuffer_size);
 
     for(int y = 0; y < image->height; y++) {
         float sine_offset = 0;
@@ -81,26 +78,21 @@ void warp(Image *image, int warp_mode, float sine_length, float sine_amp) {
             int old_pos = (y * image->width + x) * 3;
             int new_pos = (y_pos * image->width + x_pos) * 3;
 
-            image->framebuffer[old_pos    ] = framebuffer_copy[new_pos    ];
-            image->framebuffer[old_pos + 1] = framebuffer_copy[new_pos + 1];
-            image->framebuffer[old_pos + 2] = framebuffer_copy[new_pos + 2];
+            image->framebuffer[old_pos    ] = image->scratch[new_pos    ];
+            image->framebuffer[old_pos + 1] = image->scratch[new_pos + 1];
+            image->framebuffer[old_pos + 2] = image->scratch[new_pos + 2];
         }
     }
 }
 
-void dither(Image *image, float brightness, int dither_mode, int bit_depth, int threshold_val) {
+void dither(Image *image, int dither_mode, int bit_depth, int threshold_val) {
     uint8_t *fb = image->framebuffer;
     const int stride = image->width * 3;
     threshold_val = clamp(threshold_val, 40, 200);
 
     for(int y = 0; y < image->height; y++) {
         for(int x = 0; x < image->width; x++) {
-
             int pixel_pos = (y * image->width + x) * 3;
-
-            fb[pixel_pos    ] = fb[pixel_pos    ] * brightness;
-            fb[pixel_pos + 1] = fb[pixel_pos + 1] * brightness;
-            fb[pixel_pos + 2] = fb[pixel_pos + 2] * brightness;
 
             int op_r = fb[pixel_pos    ];
             int op_g = fb[pixel_pos + 1];
@@ -110,9 +102,16 @@ void dither(Image *image, float brightness, int dither_mode, int bit_depth, int 
             int qp_g = op_g;
             int qp_b = op_b;
 
-            if(dither_mode == 0) { threshold(&qp_r, &qp_g, &qp_b, threshold_val, 0); }
-            else if(dither_mode == 1) { quantize(&qp_r, &qp_g, &qp_b, bit_depth); }
-            else if(dither_mode == 2) { threshold(&qp_r, &qp_g, &qp_b, threshold_val, 1); }
+            if(dither_mode == 0) {
+                threshold(&qp_r, &qp_g, &qp_b, threshold_val, 0);
+            }
+            else if(dither_mode == 1) {
+                quantize(&qp_r, &qp_g, &qp_b, bit_depth);
+            }
+            else if(dither_mode == 2) {
+                quantize(&qp_r, &qp_g, &qp_b, bit_depth);
+                threshold(&qp_r, &qp_g, &qp_b, threshold_val, 1);
+            }
 
             fb[pixel_pos    ] = qp_r;
             fb[pixel_pos + 1] = qp_g;
@@ -201,7 +200,7 @@ void pixelate(Image *image, int pixel_size) {
             for(int ph = 0; ph < pixel_size && (ph + y) < image->height; ph++) {
                 for(int pw = 0; pw < pixel_size && (pw + x) < image->width; pw++) {
                     int pixel_pos_2 = pixel_pos + (ph * image->width + pw) * 3;
-                    if(pixel_pos_2 < image->width * image->height * 3) {
+                    if(pixel_pos_2 <= image->width * image->height * 3) {
                         image->framebuffer[pixel_pos_2] = r;
                         image->framebuffer[pixel_pos_2 + 1] = g;
                         image->framebuffer[pixel_pos_2 + 2] = b;
@@ -212,10 +211,168 @@ void pixelate(Image *image, int pixel_size) {
     }
 }
 
+
+void blur2(Image *image, int size) {
+    int width  = image->width;
+    int height = image->height;
+
+    for (int y = 0; y < height; y++) {
+        int row_start = y * width * 3;
+        int r_sum = 0, g_sum = 0, b_sum = 0, count = 0;
+ 
+        for (int i = -size; i <= size; i++) {
+            if (i >= 0 && i < width) {
+                int p = row_start + i * 3;
+                r_sum += image->framebuffer[p    ];
+                g_sum += image->framebuffer[p + 1];
+                b_sum += image->framebuffer[p + 2];
+                count++;
+            }
+        }
+ 
+        for (int x = 0; x < width; x++) {
+            int pixel_pos = row_start + x * 3;
+ 
+            image->scratch[pixel_pos    ] = r_sum / count;
+            image->scratch[pixel_pos + 1] = g_sum / count;
+            image->scratch[pixel_pos + 2] = b_sum / count;
+ 
+            int leaving  = x - size;
+            int entering = x + size + 1;
+ 
+            if (leaving >= 0 && leaving < width) {
+                int p = row_start + leaving * 3;
+                r_sum -= image->framebuffer[p    ];
+                g_sum -= image->framebuffer[p + 1];
+                b_sum -= image->framebuffer[p + 2];
+                count--;
+            }
+            if (entering >= 0 && entering < width) {
+                int p = row_start + entering * 3;
+                r_sum += image->framebuffer[p    ];
+                g_sum += image->framebuffer[p + 1];
+                b_sum += image->framebuffer[p + 2];
+                count++;
+            }
+        }
+    }
+
+    for (int x = 0; x < width; x++) {
+        int col_start = x * 3;
+        int stride = width * 3;
+        int r_sum = 0, g_sum = 0, b_sum = 0, count = 0;
+ 
+        for (int i = -size; i <= size; i++) {
+            if (i >= 0 && i < height) {
+                int p = col_start + i * stride;
+                r_sum += image->scratch[p    ];
+                g_sum += image->scratch[p + 1];
+                b_sum += image->scratch[p + 2];
+                count++;
+            }
+        }
+ 
+        for (int y = 0; y < height; y++) {
+            int pixel_pos = col_start + y * stride;
+ 
+            image->framebuffer[pixel_pos    ] = r_sum / count;
+            image->framebuffer[pixel_pos + 1] = g_sum / count;
+            image->framebuffer[pixel_pos + 2] = b_sum / count;
+ 
+            int leaving  = y - size;
+            int entering = y + size + 1;
+ 
+            if (leaving >= 0 && leaving < height) {
+                int p = col_start + leaving * stride;
+                r_sum -= image->scratch[p    ];
+                g_sum -= image->scratch[p + 1];
+                b_sum -= image->scratch[p + 2];
+                count--;
+            }
+            if (entering >= 0 && entering < height) {
+                int p = col_start + entering * stride;
+                r_sum += image->scratch[p    ];
+                g_sum += image->scratch[p + 1];
+                b_sum += image->scratch[p + 2];
+                count++;
+            }
+        }
+    }
+}
+
+
+void blur(Image *image, int size) {
+    int r_average = 0;
+    int g_average = 0;
+    int b_average = 0;
+
+    int pixel_pos = 0;
+    int new_pos = 0;
+    int count = 0;
+
+    // Horizontal pass
+    for(int y = 0; y < image->height; y++) {
+        for(int x = 0; x < image->width; x++) {
+            pixel_pos = (y * image->width + x) * 3;
+
+            for(int h = -size; h <= size; h++) {
+                new_pos = pixel_pos + (h * 3);
+
+                if(new_pos >= 0 && new_pos <= (int)image->framebuffer_size - 2) {
+                    r_average += image->framebuffer[new_pos    ];
+                    g_average += image->framebuffer[new_pos + 1];
+                    b_average += image->framebuffer[new_pos + 2];
+
+                    count++;
+                }
+            }
+
+            image->scratch[pixel_pos    ] = r_average / count;
+            image->scratch[pixel_pos + 1] = g_average / count;
+            image->scratch[pixel_pos + 2] = b_average / count;
+
+            r_average = 0;
+            g_average = 0;
+            b_average = 0;
+            
+            count = 0;
+        }
+    }
+
+    // Vertical pass
+    for(int y = 0; y < image->height; y++) {
+        for(int x = 0; x < image->width; x++) {
+            pixel_pos = (y * image->width + x) * 3;
+
+            for(int v = -size; v <= size; v++) {
+                new_pos = pixel_pos + (v * image->width * 3);
+
+                if(new_pos >= 0 && new_pos <= (int)image->framebuffer_size - 2) {
+                    r_average += image->scratch[new_pos    ];
+                    g_average += image->scratch[new_pos + 1];
+                    b_average += image->scratch[new_pos + 2];
+
+                    count++;
+                }
+            }
+
+            image->framebuffer[pixel_pos    ] = r_average / count;
+            image->framebuffer[pixel_pos + 1] = g_average / count;
+            image->framebuffer[pixel_pos + 2] = b_average / count;
+
+            r_average = 0;
+            g_average = 0;
+            b_average = 0;
+            
+            count = 0;
+        }
+    }
+}
+
 void apply_efx(Image *image, EffectFlags *efx, EffectParams *params) {
     memcpy(image->framebuffer, image->original, image->framebuffer_size);
 
-    int pixel_size = (int)(1 + params->pixel_size * 10);
+    int pixel_size = (int)(1 + params->pixel_size * 20);
     int bit_depth = (int)(1 + params->bit_depth * 7);
     float sine_length = (10 + params->sine_length * 400.0f);
     float sine_amp = (params->sine_amp * 200.0f);
@@ -223,7 +380,7 @@ void apply_efx(Image *image, EffectFlags *efx, EffectParams *params) {
     float exposure_val = (params->exposure_val * 3.0f);
     int contrast_val = (int)(((params->contrast_val * 2) - 0.5) * 170);
     float saturation_val = (params->saturation_val * 5.0f);
-    float dither_brightness = (0.2f + params->dither_brightness);
+    int blur_size = (int)(params->blur_size * 40.0f);
 
     if(efx->warp) {
         warp(image, params->warp_mode, sine_length, sine_amp);
@@ -232,7 +389,10 @@ void apply_efx(Image *image, EffectFlags *efx, EffectParams *params) {
         pixelate(image, pixel_size);
     }
     if (efx->dither) {
-        dither(image, dither_brightness, params->dither_mode, bit_depth, threshold_val);
+        dither(image, params->dither_mode, bit_depth, threshold_val);
+    }
+    if(efx->blur) {
+        blur2(image, blur_size);
     }
 
     for (int y = 0; y < image->height; y++) { 
@@ -252,8 +412,6 @@ void apply_efx(Image *image, EffectFlags *efx, EffectParams *params) {
             if(efx->threshold)   { threshold(&r, &g, &b, threshold_val, params->threshold_mode); }
             if(efx->color_bias)  { color_bias(&r, &g, &b, params->color_bias); }
             if(efx->color_shift) { color_shift(&r, &g, &b, params->color_shift_val); }
-
-
 
             image->framebuffer[pixel_pos    ] = (Uint8)r;
             image->framebuffer[pixel_pos + 1] = (Uint8)g;

@@ -9,7 +9,6 @@
 #include "file_io.h"
 #include "tinyfiledialogs.h"
 
-#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
@@ -36,6 +35,10 @@ void *load_image(void *data) {
         stbi_image_free(image->original);
         image->original = NULL;
     }
+    if(image->scratch) {
+        free(image->scratch);
+        image->scratch = NULL;
+    }
 
     image->path = strdup(image_path);
     if(image->path == NULL) {
@@ -61,6 +64,19 @@ void *load_image(void *data) {
         return NULL;
     }
     memcpy(image->framebuffer, image->original, image->framebuffer_size);
+
+    // Allocating the scratch buffer
+    image->scratch = malloc(image->framebuffer_size);
+    if(image->scratch == NULL) {
+        free(image->path);
+        stbi_image_free(image->original);
+        free(image->framebuffer);
+        image->path = NULL;
+        image->original = NULL;
+        image->scratch = NULL;
+        return NULL;
+    }
+    memcpy(image->scratch, image->original, image->framebuffer_size);
 
     image->needs_reload = true;
     return NULL;
