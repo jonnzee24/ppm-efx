@@ -34,10 +34,8 @@ void threshold(int *r, int *g, int *b, int threshold, int threshold_mode) {
 }
 
 void quantize(int *r, int *g, int *b, int bit_depth) {
-    int levels = 1 << bit_depth; // 2 to the power of bit depth.
-                                 // n bits can store 2 to the power of n values.
-
-    int bucket_size = 256 / levels; // how many values are in each level
+    int levels = 1 << bit_depth;
+    int bucket_size = 256 / levels;
 
     *r = ((*r / bucket_size) * 255) / (levels - 1);
     *g = ((*g / bucket_size) * 255) / (levels - 1);
@@ -87,7 +85,7 @@ void warp(Image *image, int warp_mode, float sine_length, float sine_amp) {
 
 void dither(Image *image, int dither_mode, int bit_depth, int threshold_val) {
     uint8_t *fb = image->framebuffer;
-    const int stride = image->width * 3;
+    int stride = image->width * 3;
     threshold_val = clamp(threshold_val, 40, 200);
 
     for(int y = 0; y < image->height; y++) {
@@ -215,12 +213,10 @@ void blur(Image *image, int size) {
     int width = image->width;
     int height = image->height;
 
-    // Horizontal pass
     for(int y = 0; y < height; y++) {
         int row_start = y * width * 3;
         int r_sum = 0, g_sum = 0, b_sum = 0, count = 0;
 
-        // Initial window
         for(int i = -size; i <= size; i++) {
             int p = row_start + (i * 3);
             if(i >= 0 && i < width) {
@@ -258,13 +254,11 @@ void blur(Image *image, int size) {
         }
     }
 
-    // Vertical pass
     for(int x = 0; x < width; x++) {
         int col_start = x * 3;
         int stride = width * 3;
         int r_sum = 0, g_sum = 0, b_sum = 0, count = 0;
 
-        // Initial window
         for(int i = -size; i <= size; i++) {
             int p = col_start + (i * stride);
             if(i >= 0 && i < height) {

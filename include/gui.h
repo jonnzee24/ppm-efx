@@ -79,7 +79,7 @@ int init_gui(AppContext *ctx, Image *image);
 void cleanup_gui(void);
 void update_gui(AppContext *ctx);
 void render_gui(AppContext *ctx);
-void process_gui_events(SDL_Event *event, AppContext *ctx);
+void process_gui_events(SDL_Event *event, AppContext *ctx, Image *image);
 void draw_debug_info(AppContext *ctx, Image *image);
 
 #endif

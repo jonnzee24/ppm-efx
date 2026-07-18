@@ -1,0 +1,6 @@
+1.  Zoom in where the mouse cursor is when you zoom,
+    by moving the image in the right direction depending on where the mouse is relative to the image's center.
+
+2.  Clamp the image's center to be inside the image viewport.
+
+3.  More EFX!!

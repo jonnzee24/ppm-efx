@@ -33,13 +33,17 @@ typedef struct Image {
     char *path;
     int width;
     int height;
+
     uint8_t *framebuffer;
     size_t framebuffer_size;
     uint8_t *original;
     uint8_t *scratch;
+
     SDL_Texture *texture;
     SDL_FRect texture_rect;
+
     bool needs_reload;
+    bool needs_update;
 } Image;
 
 typedef struct SDL_Context {
@@ -51,8 +55,6 @@ typedef struct SDL_Context {
 } SDL_Context;
 
 typedef struct UserParams {
-    float x_offset;
-    float y_offset;
     float scale;
     bool panning;
     float mx, my;

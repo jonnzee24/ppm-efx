@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include <stdlib.h>
 
@@ -69,6 +70,7 @@ int init_gui(AppContext *ctx, Image *image) {
 
     // Left side effect buttons
     int y_offset = 0;
+
     #define INIT_EFX_BTN(id, string, efxm)                                       \
             do {                                                                 \
                 ctx->gui.buttons[id] = (Button){ .button_type = EFX_BTN,         \
@@ -100,6 +102,7 @@ int init_gui(AppContext *ctx, Image *image) {
     
     // Right side effect parameter sliders
     #define SLIDER_X (ctx->sdl.win_width - (MARGIN_X / 2) + 5)
+
     #define INIT_EFX_SLIDER(id, string, parameter)                               \
             do {                                                                 \
                 ctx->gui.sliders[id] = (Slider){.x = SLIDER_X,                   \
@@ -216,7 +219,7 @@ void render_gui(AppContext *ctx) {
     }
 }
 
-void process_gui_events(SDL_Event *event, AppContext *ctx) {
+void process_gui_events(SDL_Event *event, AppContext *ctx, Image *image) {
     switch(event->type) {
         case SDL_EVENT_MOUSE_MOTION: {
             SDL_Point mouse_pos = {ctx->usr.mx, ctx->usr.my};
@@ -258,7 +261,7 @@ void process_gui_events(SDL_Event *event, AppContext *ctx) {
                     *slider_val += event->motion.xrel * 0.005;
                     *slider_val = clampf(*slider_val, 0.0f, 1.0f);
 
-                    ctx->state.needs_update = true;
+                    image->needs_update = true;
                 }
             }
 
@@ -270,8 +273,9 @@ void process_gui_events(SDL_Event *event, AppContext *ctx) {
                 for(int i = 0; i < NUM_BUTTONS; i++) {
                     if(ctx->gui.buttons[i].hovered) {
                         ctx->gui.buttons[i].clicked = true;
-                        ctx->state.needs_update = true;
                         ctx->gui.buttons[i].on_click(ctx->gui.buttons[i].data);
+
+                        image->needs_update = true;
                     }
                 }
 
@@ -282,6 +286,7 @@ void process_gui_events(SDL_Event *event, AppContext *ctx) {
                 }
             }
             break;
+
         case SDL_EVENT_MOUSE_BUTTON_UP:
             if(event->button.button == SDL_BUTTON_LEFT) {
                 for(int i = 0; i < NUM_SLIDERS; i++) {
@@ -396,7 +401,7 @@ void draw_slider(SDL_Renderer *renderer, Slider *slider) {
 void draw_debug_info(AppContext *ctx, Image *image) {
     char buffer[32];
     int x = (MARGIN_X / 2) + 10;
-    int y = 50;
+    int y = (MARGIN_Y / 2) + 10;
     int y_offset = 30;
 
     #define DRAW_DEBUG_INFO(fmt_str, value)                                \
@@ -406,21 +411,24 @@ void draw_debug_info(AppContext *ctx, Image *image) {
                 y += y_offset;                                             \
             } while(0)                                                     \
 
+
+    DRAW_DEBUG_INFO("DEBUG INFO%s", "");
+
     DRAW_DEBUG_INFO("Scale: %.2f", ctx->usr.scale);
 
-    DRAW_DEBUG_INFO("Image Width: %d",  image->width);
-    DRAW_DEBUG_INFO("Image Height: %d", image->height);
+    DRAW_DEBUG_INFO("Original Width: %d",  image->width);
+    DRAW_DEBUG_INFO("Original Height: %d", image->height);
 
-    DRAW_DEBUG_INFO("texture_rect.x: %.0f", image->texture_rect.x);
-    DRAW_DEBUG_INFO("texture_rect.y: %.0f", image->texture_rect.y);
-    DRAW_DEBUG_INFO("texture_rect.w: %.0f", image->texture_rect.w);
-    DRAW_DEBUG_INFO("texture_rect.h: %.0f", image->texture_rect.h);
-
-    DRAW_DEBUG_INFO("Usr X Offset: %.0f", ctx->usr.x_offset);
-    DRAW_DEBUG_INFO("Usr Y Offset: %.0f", ctx->usr.y_offset);
+    DRAW_DEBUG_INFO("Image X: %.0f", image->texture_rect.x);
+    DRAW_DEBUG_INFO("Image Y: %.0f", image->texture_rect.y);
+    DRAW_DEBUG_INFO("Image W: %.0f", image->texture_rect.w);
+    DRAW_DEBUG_INFO("Image H: %.0f", image->texture_rect.h);
 
     DRAW_DEBUG_INFO("Image VP X: %d", ctx->sdl.image_vp.x);
     DRAW_DEBUG_INFO("Image VP Y: %d", ctx->sdl.image_vp.y);
     DRAW_DEBUG_INFO("Image VP W: %d", ctx->sdl.image_vp.w);
     DRAW_DEBUG_INFO("Image VP H: %d", ctx->sdl.image_vp.h);
+
+    DRAW_DEBUG_INFO("Mouse X: %0.f", ctx->usr.mx);
+    DRAW_DEBUG_INFO("Mouse Y: %0.f", ctx->usr.my);
 }
