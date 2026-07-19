@@ -1,5 +1,0 @@
-Gaussian blur
-Sharpen
-Bloom
-Noise
-Chromatic aberration

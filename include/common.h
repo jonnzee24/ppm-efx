@@ -85,7 +85,7 @@ typedef struct EffectParams {
     } warp_mode;
     int threshold_mode;
     int dither_mode;
-        enum {
+    enum {
         R, G, B
     } color_bias;
 
@@ -97,6 +97,7 @@ typedef struct EffectParams {
     float exposure_val;
     float contrast_val;
     float saturation_val;
+    float invert_x;
     float color_shift_val;
     float blur_size;
 } EffectParams;

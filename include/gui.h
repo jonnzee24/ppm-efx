@@ -23,6 +23,8 @@ typedef struct {
 typedef enum {
     LOAD_IMAGE,
     SAVE_IMAGE,
+    RESET,
+    RANDOMIZE,
     EXIT,
 
     WARP_MODE,
@@ -59,6 +61,7 @@ typedef enum {
     SATURATION_VAL,
     CONTRAST_VAL,
     EXPOSURE_VAL,
+    INVERT_X,
     THRESHOLD_VAL,
     BIT_DEPTH,
     COLOR_SHIFT_VAL,
@@ -78,7 +81,7 @@ typedef struct {
 int init_gui(AppContext *ctx, Image *image);
 void cleanup_gui(void);
 void update_gui(AppContext *ctx);
-void render_gui(AppContext *ctx);
+void render_gui(AppContext *ctx, Image *image);
 void process_gui_events(SDL_Event *event, AppContext *ctx, Image *image);
 void draw_debug_info(AppContext *ctx, Image *image);
 

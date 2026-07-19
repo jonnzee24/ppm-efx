@@ -20,6 +20,8 @@ int num_cached_text = 0;
 
 void *exit_application(void *data);
 void *toggle_efx(void *data);
+void *reset_efx(void *data);
+void *randomize_efx(void *data);
 void *change_warp_mode(void *data);
 void *change_mode_3(void *data);
 
@@ -62,10 +64,17 @@ int init_gui(AppContext *ctx, Image *image) {
     ctx->gui.buttons[LOAD_IMAGE] = (Button){ .button_type = GENERIC, .x = TOP_X, .y = TOP_Y, .w = TOP_W, .h = TOP_H, 
                                              .text = "Load Image", .on_click = load_image, .data = image};
 
-    ctx->gui.buttons[SAVE_IMAGE] = (Button){ .button_type = GENERIC, .x = TOP_X + TOP_X_OFFSET, .y = TOP_Y, .w = TOP_W, .h = TOP_H,
+    ctx->gui.buttons[RESET] = (Button){ .button_type = GENERIC, .x = TOP_X + TOP_X_OFFSET, .y = TOP_Y, .w = TOP_W, .h = TOP_H,
+                                             .text = "Reset", .on_click = reset_efx, .data = ctx};
+
+    ctx->gui.buttons[RANDOMIZE] = (Button){ .button_type = GENERIC, .x = TOP_X + TOP_X_OFFSET * 2, .y = TOP_Y, .w = TOP_W, .h = TOP_H,
+                                             .text = "Randomize", .on_click = randomize_efx, .data = ctx};
+
+    ctx->gui.buttons[SAVE_IMAGE] = (Button){ .button_type = GENERIC, .x = ctx->sdl.win_width - TOP_W - TOP_X_OFFSET - MARGIN_X/2,
+                                            .y = TOP_Y, .w = TOP_W, .h = TOP_H,
                                              .text = "Save Image", .on_click = save_image, .data = image};
 
-    ctx->gui.buttons[EXIT]       = (Button){ .button_type = GENERIC, .x = TOP_X + 2 * TOP_X_OFFSET, .y = TOP_Y, .w = TOP_W, .h = TOP_H,
+    ctx->gui.buttons[EXIT]       = (Button){ .button_type = GENERIC, .x = ctx->sdl.win_width - TOP_W - MARGIN_X/2, .y = TOP_Y, .w = TOP_W, .h = TOP_H,
                                              .text = "Quit", .on_click = exit_application, .data = &ctx->state.running};
 
     // Left side effect buttons
@@ -119,6 +128,7 @@ int init_gui(AppContext *ctx, Image *image) {
     INIT_EFX_SLIDER(SATURATION_VAL, "Saturation", saturation_val);
     INIT_EFX_SLIDER(CONTRAST_VAL, "Contrast", contrast_val);
     INIT_EFX_SLIDER(EXPOSURE_VAL, "Exposure", exposure_val);
+    INIT_EFX_SLIDER(INVERT_X, "Invert Split", invert_x);
     INIT_EFX_SLIDER(THRESHOLD_VAL, "Threshold", threshold_val);
     INIT_EFX_SLIDER(BIT_DEPTH, "Bit Depth", bit_depth);
     INIT_EFX_SLIDER(COLOR_SHIFT_VAL, "Color Shift", color_shift_val);
@@ -176,6 +186,56 @@ void *toggle_efx(void *data) {
     return NULL;
 }
 
+void *reset_efx(void *data) {
+    AppContext *ctx = (AppContext *)data;
+    ctx->efx = (EffectFlags){0};
+    ctx->params.warp_mode = MIRROR_X;
+    ctx->params.dither_mode = 0;
+    ctx->params.color_bias = R;
+    ctx->params.threshold_mode = 0;
+    ctx->params.sine_length = 0.5f;
+    ctx->params.sine_amp = 0.5f;
+    ctx->params.pixel_size = 0.5f;
+    ctx->params.threshold_val = 0.5f;
+    ctx->params.bit_depth = 0.5f;
+    ctx->params.exposure_val = 0.5f;
+    ctx->params.contrast_val = 0.5f;
+    ctx->params.saturation_val = 0.5f;
+    ctx->params.invert_x = 0.5f;
+    ctx->params.color_shift_val = 0.5f;
+    ctx->params.blur_size = 0.5f;
+    return NULL;
+}
+
+void *randomize_efx(void *data) {
+    AppContext *ctx = (AppContext *)data;
+    size_t num_efx = sizeof(ctx->efx)/sizeof(ctx->efx.warp);
+    bool *efx_ptr = (bool *)&ctx->efx;
+    for(size_t i = 0; i < num_efx; i++) {
+        efx_ptr[i] = (rand() % 2);
+    }
+    #define RAND_FLOAT (float)rand()/(float)RAND_MAX
+
+    ctx->params.warp_mode = rand() % 4;
+    ctx->params.threshold_mode = rand() % 3;
+    ctx->params.dither_mode = rand() % 3;
+    ctx->params.color_bias = rand() % 3;
+
+    ctx->params.sine_length = RAND_FLOAT; 
+    ctx->params.sine_amp = RAND_FLOAT;
+    ctx->params.pixel_size = RAND_FLOAT;
+    ctx->params.threshold_val = RAND_FLOAT;
+    ctx->params.bit_depth = RAND_FLOAT;
+    ctx->params.exposure_val = RAND_FLOAT;
+    ctx->params.contrast_val = RAND_FLOAT;
+    ctx->params.saturation_val = RAND_FLOAT;
+    ctx->params.invert_x = RAND_FLOAT;
+    ctx->params.color_shift_val = RAND_FLOAT;
+    ctx->params.blur_size = RAND_FLOAT;
+
+    return NULL;
+}
+
 void *change_warp_mode(void *data) {
     int *mode = (int *)data;
     if(*mode < 3) {
@@ -199,6 +259,9 @@ void *change_mode_3(void *data) {
 void update_gui(AppContext *ctx) {
     SDL_GetWindowSize(ctx->sdl.window, &ctx->sdl.win_width, &ctx->sdl.win_height);
 
+    ctx->gui.buttons[SAVE_IMAGE].x = ctx->sdl.win_width - TOP_W - TOP_X_OFFSET - MARGIN_X/2;
+    ctx->gui.buttons[EXIT].x = ctx->sdl.win_width - MARGIN_X/2 - TOP_W;
+
     ctx->gui.buttons[WARP_MODE].x = SLIDER_X;
     ctx->gui.buttons[THRESHOLD_MODE].x = SLIDER_X;
     ctx->gui.buttons[COLOR_BIAS_MODE].x = SLIDER_X;
@@ -209,13 +272,19 @@ void update_gui(AppContext *ctx) {
     }
 }
 
-void render_gui(AppContext *ctx) {
+void render_gui(AppContext *ctx, Image *image) {
     for(int i = 0; i < NUM_BUTTONS; i++) {
         draw_button(ctx->sdl.renderer, &ctx->gui.buttons[i]);
     }
     
     for(int i = 0; i < NUM_SLIDERS; i++) {
         draw_slider(ctx->sdl.renderer, &ctx->gui.sliders[i]);
+    }
+
+    if(ctx->state.image_loaded) {
+        int path_w, path_h;
+        TTF_GetStringSize(font_15, image->path, 0, &path_w, &path_h);
+        draw_dynamic_text(ctx->sdl.renderer, ctx->sdl.win_width/2 - path_w/2, MARGIN_Y/4 - path_h/2, WHITE, image->path);
     }
 }
 

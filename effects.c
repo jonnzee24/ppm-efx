@@ -1,4 +1,5 @@
 #include <math.h>
+#include <time.h>
 #include <stdlib.h>
 
 #include "common.h"
@@ -212,86 +213,87 @@ void pixelate(Image *image, int pixel_size) {
 void blur(Image *image, int size) {
     int width = image->width;
     int height = image->height;
+    for(int t = 0; t < 3; t++) {
+        for(int y = 0; y < height; y++) {
+            int row_start = y * width * 3;
+            int r_sum = 0, g_sum = 0, b_sum = 0, count = 0;
 
-    for(int y = 0; y < height; y++) {
-        int row_start = y * width * 3;
-        int r_sum = 0, g_sum = 0, b_sum = 0, count = 0;
+            for(int i = 0; i <= size; i++) {
+                int p = row_start + (i * 3);
+                if(i < width) {
+                    r_sum += image->framebuffer[p    ];
+                    g_sum += image->framebuffer[p + 1];
+                    b_sum += image->framebuffer[p + 2];
+                    count++;
+                }
+            }
 
-        for(int i = -size; i <= size; i++) {
-            int p = row_start + (i * 3);
-            if(i >= 0 && i < width) {
-                r_sum += image->framebuffer[p    ];
-                g_sum += image->framebuffer[p + 1];
-                b_sum += image->framebuffer[p + 2];
-                count++;
+            for(int x = 0; x < width; x++) {
+                int p = row_start + (x * 3);
+
+                image->scratch[p    ] = r_sum / count;
+                image->scratch[p + 1] = g_sum / count;
+                image->scratch[p + 2] = b_sum / count;
+
+                int leaving  = x - size;
+                int entering = x + size + 1;
+
+                if(leaving >= 0) {
+                    int p = row_start + (leaving * 3);
+                    r_sum -= image->framebuffer[p    ];
+                    g_sum -= image->framebuffer[p + 1];
+                    b_sum -= image->framebuffer[p + 2];
+                    count--;
+                }
+                if(entering < width) {
+                    int p = row_start + (entering * 3);
+                    r_sum += image->framebuffer[p    ];
+                    g_sum += image->framebuffer[p + 1];
+                    b_sum += image->framebuffer[p + 2];
+                    count++;
+                }
             }
         }
 
         for(int x = 0; x < width; x++) {
-            int p = row_start + (x * 3);
+            int col_start = x * 3;
+            int stride = width * 3;
+            int r_sum = 0, g_sum = 0, b_sum = 0, count = 0;
 
-            image->scratch[p    ] = r_sum / count;
-            image->scratch[p + 1] = g_sum / count;
-            image->scratch[p + 2] = b_sum / count;
-
-            int leaving  = x - size;
-            int entering = x + size + 1;
-
-            if(leaving >= 0) {
-                int p = row_start + (leaving * 3);
-                r_sum -= image->framebuffer[p    ];
-                g_sum -= image->framebuffer[p + 1];
-                b_sum -= image->framebuffer[p + 2];
-                count--;
+            for(int i = 0; i <= size; i++) {
+                int p = col_start + (i * stride);
+                if(i < height) {
+                    r_sum += image->scratch[p    ];
+                    g_sum += image->scratch[p + 1];
+                    b_sum += image->scratch[p + 2];
+                    count++;
+                }
             }
-            if(entering < width) {
-                int p = row_start + (entering * 3);
-                r_sum += image->framebuffer[p    ];
-                g_sum += image->framebuffer[p + 1];
-                b_sum += image->framebuffer[p + 2];
-                count++;
-            }
-        }
-    }
 
-    for(int x = 0; x < width; x++) {
-        int col_start = x * 3;
-        int stride = width * 3;
-        int r_sum = 0, g_sum = 0, b_sum = 0, count = 0;
+            for(int y = 0; y < height; y++) {
+                int p = col_start + (y * stride);
 
-        for(int i = -size; i <= size; i++) {
-            int p = col_start + (i * stride);
-            if(i >= 0 && i < height) {
-                r_sum += image->scratch[p    ];
-                g_sum += image->scratch[p + 1];
-                b_sum += image->scratch[p + 2];
-                count++;
-            }
-        }
+                image->framebuffer[p    ] = r_sum / count;
+                image->framebuffer[p + 1] = g_sum / count;
+                image->framebuffer[p + 2] = b_sum / count;
 
-        for(int y = 0; y < height; y++) {
-            int p = col_start + (y * stride);
+                int leaving  = y - size;
+                int entering = y + size + 1;
 
-            image->framebuffer[p    ] = r_sum / count;
-            image->framebuffer[p + 1] = g_sum / count;
-            image->framebuffer[p + 2] = b_sum / count;
-
-            int leaving  = y - size;
-            int entering = y + size + 1;
-
-            if(leaving >= 0) {
-                int p = col_start + (leaving * stride);
-                r_sum -= image->scratch[p    ];
-                g_sum -= image->scratch[p + 1];
-                b_sum -= image->scratch[p + 2];
-                count--;
-            }
-            if(entering < height) {
-                int p = col_start + (entering * stride);
-                r_sum += image->scratch[p    ];
-                g_sum += image->scratch[p + 1];
-                b_sum += image->scratch[p + 2];
-                count++;
+                if(leaving >= 0) {
+                    int p = col_start + (leaving * stride);
+                    r_sum -= image->scratch[p    ];
+                    g_sum -= image->scratch[p + 1];
+                    b_sum -= image->scratch[p + 2];
+                    count--;
+                }
+                if(entering < height) {
+                    int p = col_start + (entering * stride);
+                    r_sum += image->scratch[p    ];
+                    g_sum += image->scratch[p + 1];
+                    b_sum += image->scratch[p + 2];
+                    count++;
+                }
             }
         }
     }
@@ -304,15 +306,12 @@ void apply_efx(Image *image, EffectFlags *efx, EffectParams *params) {
     int bit_depth = (int)(1 + params->bit_depth * 7);
     float sine_length = (10 + params->sine_length * 400.0f);
     float sine_amp = (params->sine_amp * 200.0f);
-    int threshold_val = (int)(params->threshold_val * 255);
-    float exposure_val = (params->exposure_val * 3.0f);
-    int contrast_val = (int)(((params->contrast_val * 2) - 0.5) * 170);
+    int threshold_val = (int)(20 + params->threshold_val * 220);
+    float exposure_val = (0.5f + params->exposure_val * 2.5f);
+    int contrast_val = (int)(((params->contrast_val * 2) - 0.5f) * 170);
     float saturation_val = (params->saturation_val * 5.0f);
     int blur_size = (int)(2 + params->blur_size * 38.0f);
 
-    if(efx->warp) {
-        warp(image, params->warp_mode, sine_length, sine_amp);
-    }
     if(efx->pixelate) {
         pixelate(image, pixel_size);
     }
@@ -321,6 +320,9 @@ void apply_efx(Image *image, EffectFlags *efx, EffectParams *params) {
     }
     if(efx->blur) {
         blur(image, blur_size);
+    }
+    if(efx->warp) {
+        warp(image, params->warp_mode, sine_length, sine_amp);
     }
 
     for (int y = 0; y < image->height; y++) { 
@@ -335,7 +337,7 @@ void apply_efx(Image *image, EffectFlags *efx, EffectParams *params) {
             if(efx->quantize)    { quantize(&r, &g, &b, bit_depth); }
             if(efx->contrast)    { contrast(&r, &g, &b, contrast_val); }
             if(efx->saturation)  { saturation(&r, &g, &b, saturation_val); }
-            if(efx->invert)      { invert(&r, &g, &b); }
+            if(efx->invert && x >= image->width * params->invert_x)      { invert(&r, &g, &b); }
             if(efx->exposure)    { exposure(&r, &g, &b, exposure_val); }
             if(efx->threshold)   { threshold(&r, &g, &b, threshold_val, params->threshold_mode); }
             if(efx->color_bias)  { color_bias(&r, &g, &b, params->color_bias); }
@@ -345,5 +347,5 @@ void apply_efx(Image *image, EffectFlags *efx, EffectParams *params) {
             image->framebuffer[pixel_pos + 1] = (Uint8)g;
             image->framebuffer[pixel_pos + 2] = (Uint8)b;
         }
-    }
+    } 
 }

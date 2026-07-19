@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <SDL3/SDL.h>
+#include <time.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -14,7 +15,7 @@
 #include "effects.h"
 #include "gui.h"
 
-bool debug_info = true;
+bool debug_info = false;
 
 int init_sdl(AppContext *ctx);
 int create_image_texture(AppContext *ctx, Image *image);
@@ -24,6 +25,7 @@ void render(AppContext *ctx, Image *image);
 void process_events(AppContext *ctx, Image *image);
 
 int main(void) {
+    srand((unsigned int)time(NULL));
     AppContext ctx = {0};
     Image image = {0};
 
@@ -46,6 +48,7 @@ int main(void) {
     ctx.params.exposure_val = 0.5f;
     ctx.params.contrast_val = 0.5f;
     ctx.params.saturation_val = 0.5f;
+    ctx.params.invert_x = 0.5f;
     ctx.params.color_shift_val = 0.5f;
     ctx.params.blur_size = 0.5f;
 
@@ -174,7 +177,7 @@ void render(AppContext *ctx, Image *image) {
     SDL_SetRenderDrawColor(ctx->sdl.renderer, 60, 60, 60, 255);
     SDL_RenderFillRect(ctx->sdl.renderer, &vp_fill_rect);
     
-    render_gui(ctx);
+    render_gui(ctx, image);
 
     if(ctx->state.image_loaded) {
         SDL_SetRenderClipRect(ctx->sdl.renderer, &ctx->sdl.image_vp);
