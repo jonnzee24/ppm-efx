@@ -1,0 +1,20 @@
+[X] 1. Pipeline functions:
+       - Append
+       - Remove
+       - Swap
+       - Clear
+
+[ ] 2. Work on GUI:
+       - Cards for each effect:
+         . Name of effect
+         . Sliders for parameters
+         . Button to grab
+         . X button to remove effect
+
+       - Arrangeable order
+       - Drag to swap
+
+[ ] 3. Look into shaders/GPU rendering.
+       - Rewrite effects as shaders
+       - Render image as GPU texture
+

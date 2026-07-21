@@ -1,0 +1,5 @@
+https://www.youtube.com/watch?v=rnbA-0kQ4eM
+
+https://wiki.libsdl.org/SDL3/CategoryGPU
+
+https://deepwiki.com/libsdl-org/SDL_shadercross/1-overview
