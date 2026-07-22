@@ -5,6 +5,10 @@
 #include <stdint.h>
 #include <SDL3/SDL.h>
 
+#include "effects.h"
+#include "file_io.h"
+#include "gui.h"
+
 #define MARGIN_Y 60
 #define MARGIN_LEFT 30
 #define MARGIN_RIGHT 400
@@ -59,5 +63,19 @@ typedef struct UserParams {
     bool panning;
     float mx, my;
 } UserParams;
+
+typedef struct AppState {
+    bool running;
+    bool image_loaded;
+    bool image_needs_update;
+} AppState;
+
+struct AppContext {
+    AppState state;
+    SDLContext sdl;
+    GuiContext gui;
+    UserParams usr;
+    EfxPipeline efx;
+};
 
 #endif

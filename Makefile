@@ -3,6 +3,9 @@ CFLAGS = -g -fcolor-diagnostics -std=gnu11 -Wall -Wextra -Werror -I./include `pk
 CFLAGS += -MMD -MP -O3
 LDFLAGS = `pkg-config --libs sdl3 sdl3-ttf` -lm
 
+CFLAGS += -arch arm64
+LDFLAGS += -arch arm64
+
 BUILD_DIR = build
 
 SRCS = ppm-efx.c file_io.c effects.c gui.c tinyfiledialogs.c
@@ -35,9 +38,9 @@ build-macos: clean ppm-efx
 	rm -rf $(APP_BUNDLE)
 	mkdir -p $(APP_MACOS) $(APP_CONTENTS) $(APP_FRAMEWORKS) $(APP_RESOURCES)
 	cp ppm-efx $(APP_MACOS)/ppm-efx
-	cp Info.plist $(APP_CONTENTS)/Info.plist
-	cp HiburMono.ttf $(APP_RESOURCES)/font.ttf
-	cp ppm-efx.icns $(APP_RESOURCES)/ppm-efx.icns
+	cp $(MACOS_BUILD_DIR)/data/Info.plist $(APP_CONTENTS)/Info.plist
+	cp $(MACOS_BUILD_DIR)/data/font.ttf $(APP_RESOURCES)/font.ttf
+	cp $(MACOS_BUILD_DIR)/data/ppm-efx.icns $(APP_RESOURCES)/ppm-efx.icns
 
 	dylibbundler --overwrite-dir --bundle-deps         \
 		-x $(APP_MACOS)/ppm-efx                        \

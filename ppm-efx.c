@@ -3,18 +3,12 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <string.h>
-#include <stdbool.h>
-#include <SDL3/SDL.h>
 #include <time.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 #include "common.h"
-#include "file_io.h"
-#include "effects.h"
-#include "gui.h"
-#include "app.h"
 
 int init_sdl(AppContext *ctx);
 int create_image_texture(SDLContext *sdl, Image *image);
@@ -30,6 +24,7 @@ int main(void) {
 
     ctx.state.running = true;
     ctx.state.image_loaded = false;
+    ctx.state.image_needs_update = false;
 
     image.needs_reload = false;
    
@@ -62,11 +57,10 @@ int main(void) {
 
             ctx.usr.scale = 1.0f;
 
-            ctx.state.image_loaded = true;
             image.needs_reload = false;
-
+            ctx.state.image_loaded = true;
+            ctx.state.image_needs_update = true;
         }
-
         update(&ctx, &image);
         render(&ctx, &image);
         SDL_Delay(10);
@@ -137,8 +131,11 @@ void update(AppContext *ctx, Image *image) {
     image->texture_rect.x = clampf(image->texture_rect.x, img_min_x, img_max_x);
     image->texture_rect.y = clampf(image->texture_rect.y, img_min_y, img_max_y);
 
-    apply_efx(image, &ctx->efx);
-    SDL_UpdateTexture(image->texture, NULL, image->framebuffer, image->width * 3);
+    if(ctx->state.image_needs_update) {
+        apply_efx(image, &ctx->efx);
+        SDL_UpdateTexture(image->texture, NULL, image->framebuffer, image->width * 3);
+        ctx->state.image_needs_update = false;
+    }
 }
 
 void recenter_image(AppContext *ctx, Image *image) {

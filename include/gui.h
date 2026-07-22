@@ -42,6 +42,8 @@ typedef struct EfxCard {
     char *name;
     int num_sliders;
     Slider sliders[4];
+    int num_buttons;
+    Button buttons[4];
     Button x_button;
     bool hovered;
     bool dragging;

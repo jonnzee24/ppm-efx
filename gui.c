@@ -1,24 +1,20 @@
 #include <stdio.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include <stdlib.h>
-#include <stdint.h>
 
 #include "common.h"
-#include "file_io.h"
 #include "gui.h"
-#include "effects.h"
-#include "app.h"
 
 TTF_Font *font = NULL;
 
 typedef struct {
-    char text[64];
+    char text[256];
     int w, h;
     SDL_Texture *texture;
     SDL_Renderer *renderer;
 } CachedText;
 
-#define TEXT_CACHE_MAX 128
+#define TEXT_CACHE_MAX 64
 CachedText text_cache[TEXT_CACHE_MAX];
 int num_cached_text = 0;
 
@@ -29,11 +25,11 @@ void *open_add_efx_popup(void *data);
 void *add_efx(void *data);
 void *randomize_efx(void *data);
 
-void draw_button(SDL_Renderer *renderer, Button button);
-void draw_slider(SDL_Renderer *renderer, Slider slider);
+void draw_button(SDL_Renderer *renderer, Button *button);
+void draw_slider(SDL_Renderer *renderer, Slider *slider);
 void draw_text(SDL_Renderer *renderer, int x, int y, SDL_Color font_color, char *text);
 void update_efx_cards(AppContext *ctx);
-void draw_efx_card(SDL_Renderer *renderer, EfxCard card);
+void draw_efx_card(SDL_Renderer *renderer, EfxCard *card);
 SDL_Texture *get_cached_text(SDL_Renderer *renderer, int *w, int *h, SDL_Color font_color, char *text);
 void create_add_efx_popup(AppContext *ctx);
 void process_gui_events(SDL_Event *event, AppContext *ctx);
@@ -56,7 +52,6 @@ int init_gui(AppContext *ctx, Image *image) {
     font = TTF_OpenFont(font_path, 15);
 
     if(font == NULL) {
-        fprintf(stderr, "Failed to load the font: %s\n", SDL_GetError());
         free(font_path);
         return 1;
     }
@@ -188,7 +183,8 @@ void *add_efx(void *data) {
 }
 
 void *reset_efx(void *data) {
-    (void)data;
+    EfxPipeline *efx = (EfxPipeline *)data;
+    clear_pipeline(efx);
     return NULL;
 }
 
@@ -197,9 +193,16 @@ void *randomize_efx(void *data) {
     return NULL;
 }
 
+void *change_mode_3(void *data) {
+    float *param = (float *)data;
+    *param += 0.5f;
+    if(*param > 1.0f) { *param = 0.0f; }
+    return NULL;
+}
+
 void render_gui(AppContext *ctx, Image *image) {
     for(int i = 0; i < NUM_TOP_BUTTONS; i++) {
-        draw_button(ctx->sdl.renderer, ctx->gui.top_buttons[i]);
+        draw_button(ctx->sdl.renderer, &ctx->gui.top_buttons[i]);
     }
 
     if(ctx->state.image_loaded) {
@@ -216,7 +219,7 @@ void render_gui(AppContext *ctx, Image *image) {
         SDL_RenderClear(ctx->gui.add_efx_popup_renderer);
 
         for(int i = 0; i < NUM_EFX; i++) {
-            draw_button(ctx->gui.add_efx_popup_renderer, ctx->gui.efx_buttons[i]);
+            draw_button(ctx->gui.add_efx_popup_renderer, &ctx->gui.efx_buttons[i]);
         }
 
         SDL_RenderPresent(ctx->gui.add_efx_popup_renderer);
@@ -260,29 +263,40 @@ void process_gui_events(SDL_Event *event, AppContext *ctx) {
 
             for(int i = 0; i < ctx->efx.count; i++) {
                 EfxCard *card = &ctx->gui.efx_cards[i];
+                bool card_hover_consumed = false;
+
                 for(int j = 0; j < card->num_sliders; j++) {
                     Slider *slider = &card->sliders[j];
                     if(point_in_rect(mouse_pos, slider->x, slider->y, slider->w, slider->h)) {
                         slider->hovered = true;
+                        card_hover_consumed = true;
                     } else { slider->hovered = false; }
 
                     if(slider->sliding) {
                         float *slider_val = (float *)slider->data;
                         *slider_val += event->motion.xrel * 0.003f;
                         *slider_val = clampf(*slider_val, 0.0f, 1.0f);
-                        return;
+                        ctx->state.image_needs_update = true;
                     }
                 }
 
-                if(point_in_rect(mouse_pos, card->x, card->y, card->w, card->h)) {
+                for(int j = 0; j < card->num_buttons; j++) {
+                    handle_button_hover(mouse_pos, &card->buttons[j]);
+                    if(card->buttons[j].hovered) { card_hover_consumed = true; }
+                }
+
+                handle_button_hover(mouse_pos, &card->x_button);
+                if(card->x_button.hovered) { card_hover_consumed = true; };
+
+                if(point_in_rect(mouse_pos, card->x, card->y, card->w, card->h) && !card_hover_consumed) {
                     card->hovered = true;
                 } else { card->hovered = false; }
 
                 if(card->dragging) {
                     card->y += event->motion.yrel;
+                    float max_y = ctx->gui.efx_cards[ctx->efx.count - 1].y;
+                    card->y = clampf(card->y, MARGIN_Y/2, max_y);
                 }
-
-                handle_button_hover(mouse_pos, &card->x_button);
             }
 
             handle_button_hover(mouse_pos, &ctx->gui.add_efx_button); 
@@ -305,11 +319,19 @@ void process_gui_events(SDL_Event *event, AppContext *ctx) {
                     EfxCard *card = &ctx->gui.efx_cards[i];
                     if(card->x_button.hovered) {
                         card->x_button.on_click(card->x_button.data);
+                        ctx->state.image_needs_update = true;
                         return;
                     }
                     for(int j = 0; j < card->num_sliders; j++) {
                         if(card->sliders[j].hovered) {
                             card->sliders[j].sliding = true;
+                            return;
+                        }
+                    }
+                    for(int j = 0; j < card->num_buttons; j++) {
+                        if(card->buttons[j].hovered) {
+                            card->buttons[j].on_click(card->buttons[j].data);
+                            ctx->state.image_needs_update = true;
                             return;
                         }
                     }
@@ -328,15 +350,17 @@ void process_gui_events(SDL_Event *event, AppContext *ctx) {
                     for(int j = 0; j < card->num_sliders; j++) {
                         card->sliders[j].sliding = false;
                     }
+
                     if(card->dragging) {
+                        card->dragging = false;
+                        card->hovered = false;
                         EfxID dragged_id = card->id;
                         for(int j = 0; j < ctx->efx.count; j++) {
                            EfxCard *card_2 = &ctx->gui.efx_cards[j];
                            if(card_2->hovered && card_2->id != dragged_id) {
                                 swap_in_pipeline(&ctx->efx, dragged_id, card_2->id);
-                                card->dragging = false;
-                                card->hovered = false;
-                                break;
+                                ctx->state.image_needs_update = true;
+                                return;
                            }
                         }
                     }
@@ -361,6 +385,7 @@ void process_popup_events(SDL_Event *event, AppContext *ctx) {
             for(int i = 0; i < NUM_EFX; i++) {
                 if(ctx->gui.efx_buttons[i].hovered) {
                     ctx->gui.efx_buttons[i].on_click(ctx->gui.efx_buttons[i].data);
+                    ctx->state.image_needs_update = true;
                     ctx->gui.adding_efx = false;
                     SDL_HideWindow(ctx->gui.add_efx_popup);
                 }
@@ -406,35 +431,32 @@ SDL_Texture *get_cached_text(SDL_Renderer *renderer, int *w, int *h, SDL_Color f
     return texture;
 }
 
-void draw_button(SDL_Renderer *renderer, Button button) {
-    SDL_FRect border_rect = {button.x, button.y, button.w, button.h};
-    SDL_FRect bg_rect = {button.x + 2, button.y + 2, button.w - 4, button.h - 4};
+void draw_button(SDL_Renderer *renderer, Button *button) {
+    SDL_FRect border_rect = {button->x, button->y, button->w, button->h};
+    SDL_FRect bg_rect = {button->x + 2, button->y + 2, button->w - 4, button->h - 4};
 
-    if(button.hovered) {
-        set_draw_color(renderer, ORANGE);
-    } else { set_draw_color(renderer, BLACK); }
+    if(button->hovered) { set_draw_color(renderer, ORANGE); }
+    else { set_draw_color(renderer, BLACK); }
     SDL_RenderFillRect(renderer, &border_rect);
 
-    if(button.hovered) {
-        set_draw_color(renderer, MID_GRAY);
-    } else { set_draw_color(renderer, DARK_GRAY); }
+    if(button->hovered) { set_draw_color(renderer, MID_GRAY); }
+    else { set_draw_color(renderer, DARK_GRAY); }
     SDL_RenderFillRect(renderer, &bg_rect);
 
     int text_w, text_h;
-    TTF_GetStringSize(font, button.text, 0, &text_w, &text_h);
-    int text_x = (button.x + button.w/2) - (text_w/2);
-    int text_y = (button.y + button.h/2) - (text_h/2);
-    draw_text(renderer, text_x, text_y, WHITE, button.text);
+    TTF_GetStringSize(font, button->text, 0, &text_w, &text_h);
+    int text_x = (button->x + button->w/2) - (text_w/2);
+    int text_y = (button->y + button->h/2) - (text_h/2);
+    draw_text(renderer, text_x, text_y, WHITE, button->text);
 }
 
-void draw_slider(SDL_Renderer *renderer, Slider slider) {
-    float *slider_val = (float *)slider.data;
+void draw_slider(SDL_Renderer *renderer, Slider *slider) {
+    SDL_FRect border_rect = {slider->x, slider->y, slider->w, slider->h};
+    SDL_FRect bg_rect = {slider->x + 2, slider->y + 2, slider->w - 4, slider->h - 4};
+    SDL_FRect slider_rect = {bg_rect.x, bg_rect.y, bg_rect.w * *(float *)slider->data, bg_rect.h};
 
-    SDL_FRect border_rect = {slider.x, slider.y, slider.w, slider.h};
-    SDL_FRect bg_rect = {slider.x + 2, slider.y + 2, slider.w - 4, slider.h - 4};
-    SDL_FRect slider_rect = {bg_rect.x, bg_rect.y, bg_rect.w * *slider_val, bg_rect.h};
-
-    set_draw_color(renderer, BLACK);
+    if(slider->hovered) { set_draw_color(renderer, ORANGE); }
+    else { set_draw_color(renderer, BLACK); }
     SDL_RenderFillRect(renderer, &border_rect);
 
     set_draw_color(renderer, DARK_GRAY);
@@ -444,17 +466,21 @@ void draw_slider(SDL_Renderer *renderer, Slider slider) {
     SDL_RenderFillRect(renderer, &slider_rect);
 
     int text_w, text_h;
-    TTF_GetStringSize(font, slider.text, 0, &text_w, &text_h);
-    int text_x = (slider.x + slider.w/2) - (text_w/2);
-    int text_y = (slider.y + slider.h/2) - (text_h/2);
+    TTF_GetStringSize(font, slider->text, 0, &text_w, &text_h);
+    int text_x = (slider->x + slider->w/2) - (text_w/2);
+    int text_y = (slider->y + slider->h/2) - (text_h/2);
 
-    draw_text(renderer, text_x, text_y, WHITE, slider.text);
+    draw_text(renderer, text_x, text_y, WHITE, slider->text);
 }
 
 void update_efx_cards(AppContext *ctx) {
     int card_offset = 0;
     for(int i = 0; i < ctx->efx.count; i++) {
         EfxCard *card = &ctx->gui.efx_cards[i];
+
+        card->num_sliders = 0;
+        card->num_buttons = 0;
+
         Efx *efx = ctx->efx.pipeline[i];
 
         card->x = ctx->sdl.win_width - MARGIN_RIGHT + 5;
@@ -463,58 +489,70 @@ void update_efx_cards(AppContext *ctx) {
         }
         card->id = efx->id;
         card->name = efx->name;
-        card->num_sliders = efx->num_params;
 
-        int slider_offset = 30;
-        for(int j = 0; j < card->num_sliders; j++) {
-            card->sliders[j].x = card->x + 25;
-            card->sliders[j].y = card->y + slider_offset;
-            card->sliders[j].w = card->w - 50;
-            card->sliders[j].h = 20;
-            card->sliders[j].text = efx->param_names[j];
-            card->sliders[j].data = &efx->params[j];
-
-            slider_offset += 30;
+        int param_offset = 30;
+        for(int j = 0; j < efx->num_params; j++) {
+            if(efx->param_types[j] == 0) {
+                card->sliders[card->num_sliders].x = card->x + 25;
+                card->sliders[card->num_sliders].y = card->y + param_offset;
+                card->sliders[card->num_sliders].w = card->w - 50;
+                card->sliders[card->num_sliders].h = 20;
+                card->sliders[card->num_sliders].text = efx->param_names[j];
+                card->sliders[card->num_sliders].data = &efx->params[j];
+                card->num_sliders += 1;
+                param_offset += 30;
+            } else {
+                card->buttons[card->num_buttons].x = card->x + 50;
+                card->buttons[card->num_buttons].y = card->y + param_offset;
+                card->buttons[card->num_buttons].w  = card->w - 100;
+                card->buttons[card->num_buttons].h = 30;
+                card->buttons[card->num_buttons].text = efx->param_names[j];
+                card->buttons[card->num_buttons].on_click = change_mode_3;
+                card->buttons[card->num_buttons].data = &efx->params[j];
+                card->num_buttons += 1;
+                param_offset += 40;
+            }
         }
-        card->h = slider_offset;
+        card->h = param_offset;
 
         card->x_button.x = card->x + card->w - 25;
         card->x_button.y = card->y + 5;
         card->x_button.data = card;
 
-        draw_efx_card(ctx->sdl.renderer, *card);
+        draw_efx_card(ctx->sdl.renderer, card);
 
-        card_offset += slider_offset + 10;
+        card_offset += param_offset + 10;
     }
     ctx->gui.add_efx_button.x = ctx->sdl.win_width - MARGIN_RIGHT + 50;
     ctx->gui.add_efx_button.y = MARGIN_Y/2 + card_offset;
-    draw_button(ctx->sdl.renderer, ctx->gui.add_efx_button);
+    draw_button(ctx->sdl.renderer, &ctx->gui.add_efx_button);
 }
 
-void draw_efx_card(SDL_Renderer *renderer, EfxCard card) {
-    SDL_FRect border_rect = {card.x, card.y, card.w, card.h};
-    SDL_FRect bg_rect = {card.x + 2, card.y + 2, card.w - 4, card.h - 4};
+void draw_efx_card(SDL_Renderer *renderer, EfxCard *card) {
+    SDL_FRect border_rect = {card->x, card->y, card->w, card->h};
+    SDL_FRect bg_rect = {card->x + 2, card->y + 2, card->w - 4, card->h - 4};
 
-    if(card.hovered && !card.x_button.hovered) {
-        set_draw_color(renderer, ORANGE);
-    } else { set_draw_color(renderer, BLACK); }
+    if(card->hovered) { set_draw_color(renderer, ORANGE); }
+    else { set_draw_color(renderer, BLACK); }
     SDL_RenderFillRect(renderer, &border_rect);
 
-    if(card.hovered && !card.x_button.hovered) {
-        set_draw_color(renderer, MID_GRAY);
-    } else { set_draw_color(renderer, DARK_GRAY); }
+    if(card->hovered) { set_draw_color(renderer, MID_GRAY); }
+    else { set_draw_color(renderer, DARK_GRAY); }
     SDL_RenderFillRect(renderer, &bg_rect);
 
     int text_w, text_h;
-    TTF_GetStringSize(font, card.name, 0, &text_w, &text_h);
-    int text_x = (card.x + card.w/2) - (text_w/2);
-    int text_y = card.y + 5;
-    draw_text(renderer, text_x, text_y, WHITE, card.name);
+    TTF_GetStringSize(font, card->name, 0, &text_w, &text_h);
+    int text_x = (card->x + card->w/2) - (text_w/2);
+    int text_y = card->y + 5;
+    draw_text(renderer, text_x, text_y, WHITE, card->name);
 
-    draw_button(renderer, card.x_button);
+    draw_button(renderer, &card->x_button);
 
-    for(int i = 0; i < card.num_sliders; i++) {
-        draw_slider(renderer, card.sliders[i]);
+    for(int i = 0; i < card->num_sliders; i++) {
+        draw_slider(renderer, &card->sliders[i]);
+    }
+    for(int i = 0; i < card->num_buttons; i++) {
+        draw_button(renderer, &card->buttons[i]);
     }
 }
 

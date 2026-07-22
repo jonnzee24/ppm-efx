@@ -180,8 +180,8 @@ void dither(Image *image, float params[], float x_split, float y_split) {
     int max_x = (int)(image->width * x_split);
     int max_y = (int)(image->height * y_split);
 
-    int dither_mode = (int)(params[0] * 3);
-    int threshold = (int)(40 + params[1] * 160);
+    int dither_mode = (int)(params[0] * 2);
+    int threshold = (int)(20 + params[1] * 160);
     int bit_depth = (int)(1 + 7 * params[2]);
 
     uint8_t *fb = image->framebuffer;
@@ -197,35 +197,21 @@ void dither(Image *image, float params[], float x_split, float y_split) {
 
             int qp_r = 0, qp_g = 0, qp_b = 0;
 
-            if(dither_mode == 0 || dither_mode == 3) {
+            if(dither_mode == 0) {
                 uint8_t luminance = (op_r + op_g + op_b) / 3;
                 qp_r = qp_g = qp_b = luminance < threshold ? 0 : 255;
             }
-            else if(dither_mode == 1) {
+            else if(dither_mode == 1 || dither_mode == 2) {
                 int levels = 1 << bit_depth;
                 int bucket_size = 256 / levels;
                 qp_r = ((op_r / bucket_size) * 255) / (levels - 1);
                 qp_g = ((op_g / bucket_size) * 255) / (levels - 1);
                 qp_b = ((op_b / bucket_size) * 255) / (levels - 1);
             }
-            else if(dither_mode == 2) {
-                int levels = 1 << bit_depth;
-                int bucket_size = 256 / levels;
-                qp_r = ((op_r / bucket_size) * 255) / (levels - 1);
-                qp_g = ((op_g / bucket_size) * 255) / (levels - 1);
-                qp_b = ((op_b / bucket_size) * 255) / (levels - 1);
 
-                uint8_t luminance = (qp_r + qp_g + qp_b) / 3;
-                qp_r = luminance < threshold ? 0 : qp_r;
-                qp_g = luminance < threshold ? 0 : qp_g;
-                qp_b = luminance < threshold ? 0 : qp_b;
-            }
-
-            if(dither_mode != 3) {
-                fb[pixel_pos    ] = qp_r;
-                fb[pixel_pos + 1] = qp_g;
-                fb[pixel_pos + 2] = qp_b;
-            }
+            fb[pixel_pos    ] = qp_r;
+            fb[pixel_pos + 1] = qp_g;
+            fb[pixel_pos + 2] = qp_b;
 
             int error_r = op_r - qp_r;
             int error_g = op_g - qp_g;
@@ -248,6 +234,13 @@ void dither(Image *image, float params[], float x_split, float y_split) {
                 if(y != image->height - 1 && x != image->width - 1) {
                     fb[(pixel_pos + i + 3) + stride] = clamp((fb[(pixel_pos + i + 3) + stride] + (error * 1) / 16), 0, 255);
                 }
+            }
+            if(dither_mode == 2) {
+                uint8_t luminance = (fb[pixel_pos] + fb[pixel_pos + 1] + fb[pixel_pos]) / 3;
+                fb[pixel_pos    ] = luminance < threshold ? 0 : fb[pixel_pos];
+                fb[pixel_pos + 1] = luminance < threshold ? 0 : fb[pixel_pos + 1];
+                fb[pixel_pos + 2] = luminance < threshold ? 0 : fb[pixel_pos + 2];
+
             }
         }
     }
@@ -551,61 +544,78 @@ int init_efx(Efx efx_list[]) {
     efx_list[THRESHOLD].name = "THRESHOLD";
     efx_list[THRESHOLD].efx_func = threshold;
     efx_list[THRESHOLD].num_params = 2;
-    efx_list[THRESHOLD].param_names[0] = "Threshold Mode";
+    efx_list[THRESHOLD].param_names[0] = "Change Mode";
+    efx_list[THRESHOLD].param_types[0] = 1;
     efx_list[THRESHOLD].param_names[1] = "Threshold Val";
+    efx_list[THRESHOLD].param_types[1] = 0;
    
     efx_list[QUANTIZE].name = "QUANTIZE";
     efx_list[QUANTIZE].efx_func = quantize;
     efx_list[QUANTIZE].num_params = 1;
     efx_list[QUANTIZE].param_names[0] = "Bit Depth";
+    efx_list[QUANTIZE].param_types[0] = 0;
 
     efx_list[SATURATION].name = "SATURATION";
     efx_list[SATURATION].efx_func = saturation;
     efx_list[SATURATION].num_params = 1;
     efx_list[SATURATION].param_names[0] = "Saturation Val";
+    efx_list[SATURATION].param_types[0] = 0;
     
     efx_list[CONTRAST].name = "CONTRAST";
     efx_list[CONTRAST].efx_func = contrast;
     efx_list[CONTRAST].num_params = 1;
     efx_list[CONTRAST].param_names[0] = "Contrast Val";
+    efx_list[CONTRAST].param_types[0] = 0;
 
     efx_list[EXPOSURE].name = "EXPOSURE";
     efx_list[EXPOSURE].efx_func = exposure;
     efx_list[EXPOSURE].num_params = 1;
     efx_list[EXPOSURE].param_names[0] = "Exposure Val";
+    efx_list[EXPOSURE].param_types[0] = 0;
 
     efx_list[COLOR_BIAS].name = "COLOR BIAS";
     efx_list[COLOR_BIAS].efx_func = color_bias;
-    efx_list[COLOR_BIAS].num_params = 0;
+    efx_list[COLOR_BIAS].num_params = 1;
+    efx_list[COLOR_BIAS].param_names[0] = "Change Color Bias";
+    efx_list[COLOR_BIAS].param_types[0] = 1;
 
     efx_list[COLOR_SHIFT].name = "COLOR SHIFT";
     efx_list[COLOR_SHIFT].efx_func = color_shift;
     efx_list[COLOR_SHIFT].num_params = 1;
-    efx_list[COLOR_SHIFT].param_names[0] = "Shift Amount";
+    efx_list[COLOR_SHIFT].param_names[0] = "Shift Val";
+    efx_list[COLOR_SHIFT].param_types[0] = 0;
 
     efx_list[WARP].name = "WARP";
     efx_list[WARP].efx_func = warp;
     efx_list[WARP].num_params = 3;
-    efx_list[WARP].param_names[0] = "Warp Mode";
+    efx_list[WARP].param_names[0] = "Change Mode";
+    efx_list[WARP].param_types[0] = 1;
     efx_list[WARP].param_names[1] = "Sine Length";
+    efx_list[WARP].param_types[1] = 0;
     efx_list[WARP].param_names[2] = "Sine Amp";
+    efx_list[WARP].param_types[2] = 0;
     
     efx_list[PIXELATE].name = "PIXELATE";
     efx_list[PIXELATE].efx_func = pixelate;
     efx_list[PIXELATE].num_params = 1;
     efx_list[PIXELATE].param_names[0] = "Pixel Size";
+    efx_list[PIXELATE].param_types[0] = 0;
     
     efx_list[DITHER].name = "DITHER";
     efx_list[DITHER].efx_func = dither;
     efx_list[DITHER].num_params  = 3;
-    efx_list[DITHER].param_names[0] = "Dither Mode";
+    efx_list[DITHER].param_names[0] = "Change Mode";
+    efx_list[DITHER].param_types[0] = 1;
     efx_list[DITHER].param_names[1] = "Dither Threshold";
+    efx_list[DITHER].param_types[1] = 0;
     efx_list[DITHER].param_names[2] = "Dither Bit Depth";
+    efx_list[DITHER].param_types[2] = 0;
 
     efx_list[BLUR].name = "BLUR";
     efx_list[BLUR].efx_func = blur;
     efx_list[BLUR].num_params = 1;
     efx_list[BLUR].param_names[0] = "Blur Size";
+    efx_list[BLUR].param_types[0] = 0;
 
     for(int i = 0; i < NUM_EFX; i++) {
         if(efx_list[i].name == NULL || efx_list[i].efx_func == NULL) {

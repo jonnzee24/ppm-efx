@@ -6,7 +6,6 @@
 #include <sys/wait.h>
 
 #include "common.h"
-#include "file_io.h"
 #include "tinyfiledialogs.h"
 
 #include "stb_image.h"
@@ -22,7 +21,6 @@ void *load_image(void *data) {
         return NULL;
     }
 
-    // clean up previous image data if another image is loaded
     if (image->path) {
         free(image->path);
         image->path = NULL;
@@ -53,7 +51,6 @@ void *load_image(void *data) {
         return NULL;
     }
 
-    // Allocating the framebuffer
     image->framebuffer_size = (image->width * image->height * 3);
     image->framebuffer = malloc(image->framebuffer_size);
     if(image->framebuffer == NULL) {
@@ -65,7 +62,6 @@ void *load_image(void *data) {
     }
     memcpy(image->framebuffer, image->original, image->framebuffer_size);
 
-    // Allocating the scratch buffer
     image->scratch = malloc(image->framebuffer_size);
     if(image->scratch == NULL) {
         free(image->path);
