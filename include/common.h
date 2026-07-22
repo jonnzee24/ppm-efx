@@ -5,13 +5,20 @@
 #include <stdint.h>
 #include <SDL3/SDL.h>
 
-#include "gui.h"
-
 #define MARGIN_Y 60
-#define MARGIN_X 400
+#define MARGIN_LEFT 30
+#define MARGIN_RIGHT 400
 
-#define WHITE (SDL_Color){255, 255, 255, 255}
-#define GREY (SDL_Color){120, 120, 120, 255}
+#define WHITE (SDL_Color){250, 250, 250, 255}
+#define BLACK (SDL_Color){20, 20, 20, 255}
+#define DARK_GRAY (SDL_Color){98, 98, 98, 255}
+#define LIGHT_GRAY (SDL_Color){147, 147, 147, 255}
+#define MID_GRAY (SDL_Color){124,124,124,255}
+#define ORANGE (SDL_Color){194, 131, 96, 255}
+
+static inline void set_draw_color(SDL_Renderer *renderer, SDL_Color c) {
+    SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
+}
 
 static inline int clamp(int value, int min, int max) {
     const int t = value < min ? min : value;
@@ -22,12 +29,6 @@ static inline float clampf(float value, float min, float max) {
     const float t = value < min ? min : value;
     return t > max ? max : t;
 }
-
-typedef struct AppState {
-    bool running;
-    bool needs_update;
-    bool image_loaded;
-} AppState;
 
 typedef struct Image {
     char *path;
@@ -43,7 +44,6 @@ typedef struct Image {
     SDL_FRect texture_rect;
 
     bool needs_reload;
-    bool needs_update;
 } Image;
 
 typedef struct SDL_Context {
@@ -52,63 +52,12 @@ typedef struct SDL_Context {
     SDL_Window *window;
     SDL_Renderer *renderer;
     SDL_Rect image_vp;
-} SDL_Context;
+} SDLContext;
 
 typedef struct UserParams {
     float scale;
     bool panning;
     float mx, my;
 } UserParams;
-
-typedef struct EffectFlags {
-    bool warp;
-    bool pixelate;
-    bool dither;
-    bool invert;
-    bool mono;
-    bool threshold;
-    bool quantize;
-    bool exposure;
-    bool contrast;
-    bool saturation;
-    bool color_bias;
-    bool color_shift;
-    bool blur;
-} EffectFlags;
-
-typedef struct EffectParams {
-    enum {
-        MIRROR_X,
-        MIRROR_Y,
-        UPSIDE_DOWN,
-        SINE
-    } warp_mode;
-    int threshold_mode;
-    int dither_mode;
-    enum {
-        R, G, B
-    } color_bias;
-
-    float sine_length;
-    float sine_amp;
-    float pixel_size;
-    float threshold_val;
-    float bit_depth;
-    float exposure_val;
-    float contrast_val;
-    float saturation_val;
-    float invert_x;
-    float color_shift_val;
-    float blur_size;
-} EffectParams;
-
-typedef struct AppContext {
-    AppState state;
-    GuiState gui;
-    SDL_Context sdl;
-    UserParams usr;
-    EffectFlags efx;
-    EffectParams params;
-} AppContext;
 
 #endif

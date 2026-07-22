@@ -14,11 +14,10 @@
 #include "file_io.h"
 #include "effects.h"
 #include "gui.h"
-
-bool debug_info = false;
+#include "app.h"
 
 int init_sdl(AppContext *ctx);
-int create_image_texture(AppContext *ctx, Image *image);
+int create_image_texture(SDLContext *sdl, Image *image);
 void update(AppContext *ctx, Image *image);
 void recenter_image(AppContext *ctx, Image *image);
 void render(AppContext *ctx, Image *image);
@@ -30,35 +29,21 @@ int main(void) {
     Image image = {0};
 
     ctx.state.running = true;
-    ctx.state.needs_update = true;
     ctx.state.image_loaded = false;
 
     image.needs_reload = false;
-    image.needs_update = false;
-    
-    ctx.params.warp_mode = MIRROR_X;
-    ctx.params.dither_mode = 0;
-    ctx.params.color_bias = R;
-    ctx.params.threshold_mode = 0;
-    ctx.params.sine_length = 0.5f;
-    ctx.params.sine_amp = 0.5f;
-    ctx.params.pixel_size = 0.5f;
-    ctx.params.threshold_val = 0.5f;
-    ctx.params.bit_depth = 0.5f;
-    ctx.params.exposure_val = 0.5f;
-    ctx.params.contrast_val = 0.5f;
-    ctx.params.saturation_val = 0.5f;
-    ctx.params.invert_x = 0.5f;
-    ctx.params.color_shift_val = 0.5f;
-    ctx.params.blur_size = 0.5f;
-
+   
+    if(init_efx(ctx.efx.efx_list) != 0) {
+        perror("Failed to initialize the EFX");
+        goto exit;
+    }
     if(init_sdl(&ctx) != 0) {
         fprintf(stderr, "Failed to initialize SDL: %s\n", SDL_GetError());  
         goto exit;
     }
     if(init_gui(&ctx, &image) != 0) {
         fprintf(stderr, "Failed to initialize the GUI: %s\n", SDL_GetError());
-        return 1;
+        goto exit;
     }
 
     while(ctx.state.running) {
@@ -71,27 +56,18 @@ int main(void) {
             if(image.texture) {
                 SDL_DestroyTexture(image.texture);
             }
-            if(create_image_texture(&ctx, &image) != 0) {
+            if(create_image_texture(&ctx.sdl, &image) != 0) {
                 fprintf(stderr, "Failed to create image texture: %s\n", SDL_GetError());
             }
 
             ctx.usr.scale = 1.0f;
 
             ctx.state.image_loaded = true;
-            image.needs_update = true;
             image.needs_reload = false;
+
         }
 
-        if(image.needs_update) {
-            apply_efx(&image, &ctx.efx, &ctx.params);
-            SDL_UpdateTexture(image.texture, NULL, image.framebuffer, image.width * 3);
-            image.needs_update = false;
-        }
-        if(ctx.state.needs_update) {
-            update(&ctx, &image);
-            ctx.state.needs_update = false;
-        }
-
+        update(&ctx, &image);
         render(&ctx, &image);
         SDL_Delay(10);
     }
@@ -100,7 +76,7 @@ exit:
     if(ctx.sdl.window)   SDL_DestroyWindow(ctx.sdl.window);
     if(ctx.sdl.renderer) SDL_DestroyRenderer(ctx.sdl.renderer);
     if(image.texture)    SDL_DestroyTexture(image.texture);
-    cleanup_gui();
+    cleanup_gui(&ctx);
     SDL_Quit();
 
     if(image.path)        free(image.path);
@@ -124,18 +100,22 @@ int init_sdl(AppContext *ctx) {
     ctx->sdl.renderer = SDL_CreateRenderer(ctx->sdl.window, NULL);
     if(ctx->sdl.renderer == NULL) { return 1; }
 
-    ctx->sdl.image_vp = (SDL_Rect){MARGIN_X / 2, MARGIN_Y / 2, ctx->sdl.win_width - MARGIN_X, ctx->sdl.win_height - MARGIN_Y};
+    ctx->sdl.image_vp = (SDL_Rect){MARGIN_LEFT, MARGIN_Y / 2, ctx->sdl.win_width - MARGIN_RIGHT, ctx->sdl.win_height - MARGIN_Y};
 
     return 0;
 }
 
-int create_image_texture(AppContext *ctx, Image *image) {
-    image->texture = SDL_CreateTexture(ctx->sdl.renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, image->width, image->height);
+int create_image_texture(SDLContext *sdl, Image *image) {
+    image->texture = SDL_CreateTexture(
+            sdl->renderer,
+            SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING,
+            image->width, image->height);
     if(image->texture == NULL) { return 1; }
+
     SDL_SetTextureScaleMode(image->texture, SDL_SCALEMODE_NEAREST);
     image->texture_rect = (SDL_FRect){
-        (ctx->sdl.image_vp.x + ctx->sdl.image_vp.w / 2) - (image->width / 2),
-        (ctx->sdl.image_vp.y + ctx->sdl.image_vp.h / 2) - (image->height / 2),
+        (sdl->image_vp.x + sdl->image_vp.w / 2) - (image->width / 2),
+        (sdl->image_vp.y + sdl->image_vp.h / 2) - (image->height / 2),
         image->width,
         image->height
     };
@@ -143,7 +123,7 @@ int create_image_texture(AppContext *ctx, Image *image) {
 }
 
 void update(AppContext *ctx, Image *image) {
-    ctx->sdl.image_vp.w = ctx->sdl.win_width - MARGIN_X;
+    ctx->sdl.image_vp.w = ctx->sdl.win_width - MARGIN_LEFT - MARGIN_RIGHT;
     ctx->sdl.image_vp.h = ctx->sdl.win_height - MARGIN_Y;
 
     image->texture_rect.w = image->width  * ctx->usr.scale;
@@ -157,11 +137,12 @@ void update(AppContext *ctx, Image *image) {
     image->texture_rect.x = clampf(image->texture_rect.x, img_min_x, img_max_x);
     image->texture_rect.y = clampf(image->texture_rect.y, img_min_y, img_max_y);
 
-    update_gui(ctx);
+    apply_efx(image, &ctx->efx);
+    SDL_UpdateTexture(image->texture, NULL, image->framebuffer, image->width * 3);
 }
 
 void recenter_image(AppContext *ctx, Image *image) {
-    ctx->sdl.image_vp.w = ctx->sdl.win_width - MARGIN_X;
+    ctx->sdl.image_vp.w = ctx->sdl.win_width - MARGIN_LEFT - MARGIN_RIGHT;
     ctx->sdl.image_vp.h = ctx->sdl.win_height - MARGIN_Y;
     image->texture_rect.w = image->width  * ctx->usr.scale;
     image->texture_rect.h = image->height * ctx->usr.scale;
@@ -170,11 +151,11 @@ void recenter_image(AppContext *ctx, Image *image) {
 }
 
 void render(AppContext *ctx, Image *image) {
-    SDL_SetRenderDrawColor(ctx->sdl.renderer, 80, 80, 80, 255);
+    set_draw_color(ctx->sdl.renderer, LIGHT_GRAY);
     SDL_RenderClear(ctx->sdl.renderer);
-    
+   
+    set_draw_color(ctx->sdl.renderer, DARK_GRAY);
     SDL_FRect vp_fill_rect = {ctx->sdl.image_vp.x, ctx->sdl.image_vp.y, ctx->sdl.image_vp.w, ctx->sdl.image_vp.h};
-    SDL_SetRenderDrawColor(ctx->sdl.renderer, 60, 60, 60, 255);
     SDL_RenderFillRect(ctx->sdl.renderer, &vp_fill_rect);
     
     render_gui(ctx, image);
@@ -185,30 +166,24 @@ void render(AppContext *ctx, Image *image) {
         SDL_SetRenderClipRect(ctx->sdl.renderer, NULL);
     }
 
-    if(debug_info) { draw_debug_info(ctx, image); }
-
     SDL_RenderPresent(ctx->sdl.renderer);
 }
 
 void process_events(AppContext *ctx, Image *image) {
     SDL_Event event;
     while(SDL_PollEvent(&event) != 0) {
-        process_gui_events(&event, ctx, image);
+        deal_gui_events(&event, ctx);
 
         switch(event.type) {
             case SDL_EVENT_QUIT:
                 ctx->state.running = false;
                 break;
             
-            case SDL_EVENT_WINDOW_MAXIMIZED:
-            case SDL_EVENT_WINDOW_MINIMIZED:
             case SDL_EVENT_WINDOW_ENTER_FULLSCREEN:
             case SDL_EVENT_WINDOW_LEAVE_FULLSCREEN:
-            case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
             case SDL_EVENT_WINDOW_RESIZED:
                 SDL_GetWindowSize(ctx->sdl.window, &ctx->sdl.win_width, &ctx->sdl.win_height);
                 recenter_image(ctx, image);
-                ctx->state.needs_update = true;
                 break;
 
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -238,7 +213,6 @@ void process_events(AppContext *ctx, Image *image) {
                 if(ctx->usr.panning) {
                     image->texture_rect.x += event.motion.xrel;
                     image->texture_rect.y += event.motion.yrel;
-                    ctx->state.needs_update = true;
                 }
                 break;
             }
@@ -246,7 +220,7 @@ void process_events(AppContext *ctx, Image *image) {
             case SDL_EVENT_MOUSE_WHEEL: {
                 float old_scale = ctx->usr.scale;
 
-                ctx->usr.scale += event.wheel.y * ctx->usr.scale / 10;
+                ctx->usr.scale += event.wheel.y * ctx->usr.scale / 40;
                 ctx->usr.scale = clampf(ctx->usr.scale, 0.1, 100);
 
                 float scale_ratio = ctx->usr.scale / old_scale;
@@ -254,7 +228,6 @@ void process_events(AppContext *ctx, Image *image) {
                 image->texture_rect.x = ctx->usr.mx - (ctx->usr.mx - image->texture_rect.x) * scale_ratio;
                 image->texture_rect.y = ctx->usr.my - (ctx->usr.my - image->texture_rect.y) * scale_ratio;
 
-                ctx->state.needs_update = true;
                 break;
             }
 

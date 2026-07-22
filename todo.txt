@@ -4,7 +4,7 @@
        - Swap
        - Clear
 
-[ ] 2. Work on GUI:
+[X] 2. Work on GUI:
        - Cards for each effect:
          . Name of effect
          . Sliders for parameters
@@ -18,3 +18,4 @@
        - Rewrite effects as shaders
        - Render image as GPU texture
 
+[ ] 4. Use SDL3 File Dialogs instead of tinyfiledialogs.

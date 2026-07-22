@@ -1,73 +1,165 @@
 #include <math.h>
 #include <time.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "common.h"
 #include "effects.h"
 
-void invert(int *r, int *g, int *b) {
-    *r = 255 - *r;
-    *g = 255 - *g;
-    *b = 255 - *b;
-}
+void invert(Image *image, float params[], float x_split, float y_split) {
+    (void)params;
 
-void mono(int *r, int *g, int *b) {
-    uint8_t luminance = (*r + *g + *b) / 3;
-    *r = *g = *b = luminance;
-}
+    int max_x = (int)(image->width * x_split);
+    int max_y = (int)(image->height * y_split);
 
-void threshold(int *r, int *g, int *b, int threshold, int threshold_mode) {
-    uint8_t luminance = (*r + *g + *b) / 3;
+    uint8_t *fb = image->framebuffer;
+    
+    for(int y = 0; y < max_y; y++) {
+        for(int x = 0; x < max_x; x++) {
+            int pixel_pos = (y * image->width + x) * 3;
 
-    if(threshold_mode == 0) {
-        *r = *g = *b = luminance < threshold ? 0 : 255;
-    }
-    else if(threshold_mode == 1) {
-        *r = luminance < threshold ? 0 : *r;
-        *g = luminance < threshold ? 0 : *g;
-        *b = luminance < threshold ? 0 : *b;
-    }
-    else if(threshold_mode == 2) {
-        *r = luminance < threshold ? *r : 0;
-        *g = luminance < threshold ? *g : 0;
-        *b = luminance < threshold ? *b : 0;
+            uint8_t r = fb[pixel_pos    ];
+            uint8_t g = fb[pixel_pos + 1];
+            uint8_t b = fb[pixel_pos + 2];
+
+            r = 255 - r;
+            g = 255 - g;
+            b = 255 - b;
+
+            fb[pixel_pos    ] = r;
+            fb[pixel_pos + 1] = g;
+            fb[pixel_pos + 2] = b;
+        }
     }
 }
 
-void quantize(int *r, int *g, int *b, int bit_depth) {
+void mono(Image *image, float params[], float x_split, float y_split) {
+    (void)params;
+
+    int max_x = (int)(image->width * x_split);
+    int max_y = (int)(image->height * y_split);
+
+    uint8_t *fb = image->framebuffer;
+    
+    for(int y = 0; y < max_y; y++) {
+        for(int x = 0; x < max_x; x++) {
+            int pixel_pos = (y * image->width + x) * 3;
+
+            uint8_t r = fb[pixel_pos    ];
+            uint8_t g = fb[pixel_pos + 1];
+            uint8_t b = fb[pixel_pos + 2];
+
+            uint8_t luminance = (r + g + b) / 3;
+            r = g = b = luminance;
+
+            fb[pixel_pos    ] = r;
+            fb[pixel_pos + 1] = g;
+            fb[pixel_pos + 2] = b;
+        }
+    }
+}
+
+void threshold(Image *image, float params[], float x_split, float y_split) {
+    int max_x = (int)(image->width * x_split);
+    int max_y = (int)(image->height * y_split);
+
+    int threshold_mode = (int)(params[0] * 2);
+    int threshold_val = (int)(20 + params[1] * 200);
+
+    uint8_t *fb = image->framebuffer;
+
+    for(int y = 0; y < max_y; y++) {
+        for(int x = 0; x < max_x; x++) {
+            int pixel_pos = (y * image->width + x) * 3;
+
+            uint8_t r = fb[pixel_pos    ];
+            uint8_t g = fb[pixel_pos + 1];
+            uint8_t b = fb[pixel_pos + 2];
+
+            uint8_t luminance = (r + g + b) / 3;
+
+            if(threshold_mode == 0) {
+                r = g = b = luminance < threshold_val ? 0 : 255;
+            }
+            else if(threshold_mode == 1) {
+                r = luminance < threshold_val ? 0 : r;
+                g = luminance < threshold_val ? 0 : g;
+                b = luminance < threshold_val ? 0 : b;
+            }
+            else if(threshold_mode == 2) {
+                r = luminance < threshold_val ? r : 0;
+                g = luminance < threshold_val ? g : 0;
+                b = luminance < threshold_val ? b : 0;
+            }
+
+            fb[pixel_pos    ] = r;
+            fb[pixel_pos + 1] = g;
+            fb[pixel_pos + 2] = b;
+        }
+    }
+}
+
+void quantize(Image *image, float params[], float x_split, float y_split) {
+    int max_x = (int)(image->width * x_split);
+    int max_y = (int)(image->height * y_split);
+    
+    int bit_depth = (int)(1 + params[0] * 7);
     int levels = 1 << bit_depth;
     int bucket_size = 256 / levels;
 
-    *r = ((*r / bucket_size) * 255) / (levels - 1);
-    *g = ((*g / bucket_size) * 255) / (levels - 1);
-    *b = ((*b / bucket_size) * 255) / (levels - 1);
+    uint8_t *fb = image->framebuffer;
+
+    for(int y = 0; y < max_y; y++) {
+        for(int x = 0; x < max_x; x++) {
+            int pixel_pos = (y * image->width + x) * 3;
+
+            uint8_t r = fb[pixel_pos    ];
+            uint8_t g = fb[pixel_pos + 1];
+            uint8_t b = fb[pixel_pos + 2];
+
+            r = ((r / bucket_size) * 255) / (levels - 1);
+            g = ((g / bucket_size) * 255) / (levels - 1);
+            b = ((b / bucket_size) * 255) / (levels - 1);
+
+            fb[pixel_pos    ] = r;
+            fb[pixel_pos + 1] = g;
+            fb[pixel_pos + 2] = b;
+        }
+    }
 }
 
-void warp(Image *image, int warp_mode, float sine_length, float sine_amp) {
+void warp(Image *image, float params[], float x_split, float y_split) {
+    int max_x = (int)(image->width * x_split);
+    int max_y = (int)(image->height * y_split);
+
+    int warp_mode = (int)(params[0] * 3);
+    float sine_length = (10 + params[1] * 400.0f);
+    float sine_amp = (params[2] * 200.0f);
+
     memcpy(image->scratch, image->framebuffer, image->framebuffer_size);
 
-    for(int y = 0; y < image->height; y++) {
+    for(int y = 0; y < max_y; y++) {
         float sine_offset = 0;
-        if(warp_mode == SINE) {
+        if(warp_mode == 3) {
             sine_offset = sin((2.0f * M_PI * y) / sine_length) * sine_amp;
         }
 
-        for(int x = 0; x < image->width; x++) {
+        for(int x = 0; x < max_x; x++) {
             int x_pos = x;
             int y_pos = y;
 
-            if(x > image->width / 2 && warp_mode == MIRROR_X) {
+            if(x > image->width / 2 && warp_mode == 0) {
                 x_pos = image->width - x;
                 y_pos = y;
             } 
-            if(y > image->height / 2 && warp_mode == MIRROR_Y) {
+            if(y > image->height / 2 && warp_mode == 1) {
                 y_pos = image->height - y;
             } 
-            if(warp_mode == UPSIDE_DOWN) {
+            if(warp_mode == 2) {
                 x_pos = image->width - x;
                 y_pos = image->height - y;
             } 
-            if(warp_mode == SINE) {
+            if(warp_mode == 3) {
                 x_pos += sine_offset;
             }
 
@@ -84,37 +176,56 @@ void warp(Image *image, int warp_mode, float sine_length, float sine_amp) {
     }
 }
 
-void dither(Image *image, int dither_mode, int bit_depth, int threshold_val) {
+void dither(Image *image, float params[], float x_split, float y_split) {
+    int max_x = (int)(image->width * x_split);
+    int max_y = (int)(image->height * y_split);
+
+    int dither_mode = (int)(params[0] * 3);
+    int threshold = (int)(40 + params[1] * 160);
+    int bit_depth = (int)(1 + 7 * params[2]);
+
     uint8_t *fb = image->framebuffer;
     int stride = image->width * 3;
-    threshold_val = clamp(threshold_val, 40, 200);
 
-    for(int y = 0; y < image->height; y++) {
-        for(int x = 0; x < image->width; x++) {
+    for(int y = 0; y < max_y; y++) {
+        for(int x = 0; x < max_x; x++) {
             int pixel_pos = (y * image->width + x) * 3;
 
             int op_r = fb[pixel_pos    ];
             int op_g = fb[pixel_pos + 1];
             int op_b = fb[pixel_pos + 2];
 
-            int qp_r = op_r;
-            int qp_g = op_g;
-            int qp_b = op_b;
+            int qp_r = 0, qp_g = 0, qp_b = 0;
 
-            if(dither_mode == 0) {
-                threshold(&qp_r, &qp_g, &qp_b, threshold_val, 0);
+            if(dither_mode == 0 || dither_mode == 3) {
+                uint8_t luminance = (op_r + op_g + op_b) / 3;
+                qp_r = qp_g = qp_b = luminance < threshold ? 0 : 255;
             }
             else if(dither_mode == 1) {
-                quantize(&qp_r, &qp_g, &qp_b, bit_depth);
+                int levels = 1 << bit_depth;
+                int bucket_size = 256 / levels;
+                qp_r = ((op_r / bucket_size) * 255) / (levels - 1);
+                qp_g = ((op_g / bucket_size) * 255) / (levels - 1);
+                qp_b = ((op_b / bucket_size) * 255) / (levels - 1);
             }
             else if(dither_mode == 2) {
-                quantize(&qp_r, &qp_g, &qp_b, bit_depth);
-                threshold(&qp_r, &qp_g, &qp_b, threshold_val, 1);
+                int levels = 1 << bit_depth;
+                int bucket_size = 256 / levels;
+                qp_r = ((op_r / bucket_size) * 255) / (levels - 1);
+                qp_g = ((op_g / bucket_size) * 255) / (levels - 1);
+                qp_b = ((op_b / bucket_size) * 255) / (levels - 1);
+
+                uint8_t luminance = (qp_r + qp_g + qp_b) / 3;
+                qp_r = luminance < threshold ? 0 : qp_r;
+                qp_g = luminance < threshold ? 0 : qp_g;
+                qp_b = luminance < threshold ? 0 : qp_b;
             }
 
-            fb[pixel_pos    ] = qp_r;
-            fb[pixel_pos + 1] = qp_g;
-            fb[pixel_pos + 2] = qp_b;
+            if(dither_mode != 3) {
+                fb[pixel_pos    ] = qp_r;
+                fb[pixel_pos + 1] = qp_g;
+                fb[pixel_pos + 2] = qp_b;
+            }
 
             int error_r = op_r - qp_r;
             int error_g = op_g - qp_g;
@@ -142,67 +253,178 @@ void dither(Image *image, int dither_mode, int bit_depth, int threshold_val) {
     }
 }
 
-void color_shift(int *r, int *g, int *b, float shift) {    
-    float rb = (float)*r;
-    float gb = (float)*g;
-    float bb = (float)*b;
+void color_shift(Image *image, float params[], float x_split, float y_split) {
+    int max_x = (int)(image->width * x_split);
+    int max_y = (int)(image->height * y_split);
 
-    *r = (shift * bb) + (1 - shift) * rb;
-    *g = (shift * rb) + (1 - shift) * gb;
-    *b = (shift * gb) + (1 - shift) * bb;
-}
+    float shift = params[0];
 
-void exposure(int *r, int *g, int *b, float exposure_val) {
-    *r = clamp(*r * exposure_val, 0, 255);
-    *g = clamp(*g * exposure_val, 0, 255);
-    *b = clamp(*b * exposure_val, 0, 255);
-}
+    uint8_t *fb = image->framebuffer;
+    
+    for(int y = 0; y < max_y; y++) {
+        for(int x = 0; x < max_x; x++) {
+            int pixel_pos = (y * image->width + x) * 3;
 
-void contrast(int *r, int *g, int *b, int contrast_val) {
-    float factor = 259.0f * ((contrast_val + 255)) / (255 * (259 - contrast_val));
+            uint8_t r = fb[pixel_pos    ];
+            uint8_t g = fb[pixel_pos + 1];
+            uint8_t b = fb[pixel_pos + 2];
 
-    *r = clamp((factor * (*r - 128) + 128), 0, 255);
-    *g = clamp((factor * (*g - 128) + 128), 0, 255);
-    *b = clamp((factor * (*b - 128) + 128), 0, 255);
-}
+            float rb = (float)r;
+            float gb = (float)g;
+            float bb = (float)b;
 
-void saturation(int *r, int *g, int *b, float saturation_val) {
-    int gray = (*r + *g + *b) / 3;
+            r = (shift * bb) + (1 - shift) * rb;
+            g = (shift * rb) + (1 - shift) * gb;
+            b = (shift * gb) + (1 - shift) * bb;
 
-    *r = clamp(gray + (*r - gray) * saturation_val, 0, 255);
-    *g = clamp(gray + (*g - gray) * saturation_val, 0, 255);
-    *b = clamp(gray + (*b - gray) * saturation_val, 0, 255);
-}
-
-void color_bias(int *r, int *g, int *b, int bias) {
-    if(bias == R) {
-        *g = *g / 3;
-        *b = *b / 3;
-    } else if(bias == G) {
-        *r = *r / 3;
-        *b = *b / 3;
-    } else if(bias == B) {
-        *r = *r / 3;
-        *g = *g / 3;
+            fb[pixel_pos    ] = r;
+            fb[pixel_pos + 1] = g;
+            fb[pixel_pos + 2] = b;
+        }
     }
 }
 
-void pixelate(Image *image, int pixel_size) {
-    for(int y = 0; y < image->height; y += pixel_size) {
-        for(int x = 0; x < image->width; x += pixel_size) {
+void exposure(Image *image, float params[], float x_split, float y_split) {
+    int max_x = (int)(image->width * x_split);
+    int max_y = (int)(image->height * y_split);
+
+    float exposure_val = (0.5f + params[0] * 2.5f);
+
+    uint8_t *fb = image->framebuffer;
+    
+    for(int y = 0; y < max_y; y++) {
+        for(int x = 0; x < max_x; x++) {
             int pixel_pos = (y * image->width + x) * 3;
 
-            int r = image->framebuffer[pixel_pos];
-            int g = image->framebuffer[pixel_pos + 1];
-            int b = image->framebuffer[pixel_pos + 2];
+            uint8_t r = fb[pixel_pos    ];
+            uint8_t g = fb[pixel_pos + 1];
+            uint8_t b = fb[pixel_pos + 2];
 
-            for(int ph = 0; ph < pixel_size && (ph + y) < image->height; ph++) {
-                for(int pw = 0; pw < pixel_size && (pw + x) < image->width; pw++) {
+            r = clamp(r * exposure_val, 0, 255);
+            g = clamp(g * exposure_val, 0, 255);
+            b = clamp(b * exposure_val, 0, 255);
+
+            fb[pixel_pos    ] = r;
+            fb[pixel_pos + 1] = g;
+            fb[pixel_pos + 2] = b;
+        }
+    }
+}
+
+void contrast(Image *image, float params[], float x_split, float y_split) {
+    int max_x = (int)(image->width * x_split);
+    int max_y = (int)(image->height * y_split);
+
+    int contrast_val = (int)(((params[0] * 2) - 0.5f) * 170);
+    float factor = 259.0f * ((contrast_val + 255)) / (255 * (259 - contrast_val));
+    
+    uint8_t *fb = image->framebuffer;
+    
+    for(int y = 0; y < max_y; y++) {
+        for(int x = 0; x < max_x; x++) {
+            int pixel_pos = (y * image->width + x) * 3;
+
+            uint8_t r = fb[pixel_pos    ];
+            uint8_t g = fb[pixel_pos + 1];
+            uint8_t b = fb[pixel_pos + 2];
+
+            r = clamp((factor * (r - 128) + 128), 0, 255);
+            g = clamp((factor * (g - 128) + 128), 0, 255);
+            b = clamp((factor * (b - 128) + 128), 0, 255);
+
+            fb[pixel_pos    ] = r;
+            fb[pixel_pos + 1] = g;
+            fb[pixel_pos + 2] = b;
+        }
+    }
+}
+
+void saturation(Image *image, float params[], float x_split, float y_split) {
+    int max_x = (int)(image->width * x_split);
+    int max_y = (int)(image->height * y_split);
+
+    float saturation_val = (params[0] * 5.0f);
+        
+    uint8_t *fb = image->framebuffer;
+    
+    for(int y = 0; y < max_y; y++) {
+        for(int x = 0; x < max_x; x++) {
+            int pixel_pos = (y * image->width + x) * 3;
+
+            uint8_t r = fb[pixel_pos    ];
+            uint8_t g = fb[pixel_pos + 1];
+            uint8_t b = fb[pixel_pos + 2];
+
+            int gray = (r + g + b) / 3;
+
+            r = clamp(gray + (r - gray) * saturation_val, 0, 255);
+            g = clamp(gray + (g - gray) * saturation_val, 0, 255);
+            b = clamp(gray + (b - gray) * saturation_val, 0, 255);
+
+            fb[pixel_pos    ] = r;
+            fb[pixel_pos + 1] = g;
+            fb[pixel_pos + 2] = b;
+        }
+    }
+}
+
+void color_bias(Image *image, float params[], float x_split, float y_split) {
+    int max_x = (int)(image->width * x_split);
+    int max_y = (int)(image->height * y_split);
+
+    int bias = (int)(params[0] * 2);
+ 
+    uint8_t *fb = image->framebuffer;
+    
+    for(int y = 0; y < max_y; y++) {
+        for(int x = 0; x < max_x; x++) {
+            int pixel_pos = (y * image->width + x) * 3;
+
+            uint8_t r = fb[pixel_pos    ];
+            uint8_t g = fb[pixel_pos + 1];
+            uint8_t b = fb[pixel_pos + 2];
+
+            if(bias == 0) {
+                g = g / 3;
+                b = b / 3;
+            } else if(bias == 1) {
+                r = r / 3;
+                b = b / 3;
+            } else if(bias == 2) {
+                r = r / 3;
+                g = g / 3;
+            }
+
+            fb[pixel_pos    ] = r;
+            fb[pixel_pos + 1] = g;
+            fb[pixel_pos + 2] = b;
+        }
+    }
+}
+
+void pixelate(Image *image, float params[], float x_split, float y_split) {
+    int max_x = (int)(image->width * x_split);
+    int max_y = (int)(image->height * y_split);
+
+    int pixel_size = (int)(2 + params[0] * 38);
+ 
+    uint8_t *fb = image->framebuffer;
+
+    for(int y = 0; y < max_y; y += pixel_size) {
+        for(int x = 0; x < max_x; x += pixel_size) {
+            int pixel_pos = (y * image->width + x) * 3;
+
+            uint8_t r = fb[pixel_pos];
+            uint8_t g = fb[pixel_pos + 1];
+            uint8_t b = fb[pixel_pos + 2];
+
+            for(int ph = 0; ph < pixel_size && (ph + y) < max_y; ph++) {
+                for(int pw = 0; pw < pixel_size && (pw + x) < max_x; pw++) {
                     int pixel_pos_2 = pixel_pos + (ph * image->width + pw) * 3;
                     if(pixel_pos_2 <= image->width * image->height * 3) {
-                        image->framebuffer[pixel_pos_2] = r;
-                        image->framebuffer[pixel_pos_2 + 1] = g;
-                        image->framebuffer[pixel_pos_2 + 2] = b;
+                        fb[pixel_pos_2] = r;
+                        fb[pixel_pos_2 + 1] = g;
+                        fb[pixel_pos_2 + 2] = b;
                     }
                 }
             }
@@ -210,52 +432,61 @@ void pixelate(Image *image, int pixel_size) {
     }
 }
 
-void blur(Image *image, int size) {
+void blur(Image *image, float params[], float x_split, float y_split) {
+    int max_x = (int)(image->width * x_split);
+    int max_y = (int)(image->height * y_split);
+
+    int size = (int)(2 + params[0] * 38);
+ 
+    uint8_t *fb = image->framebuffer;
+    uint8_t *sb = image->scratch;
+
     int width = image->width;
     int height = image->height;
+
     for(int t = 0; t < 3; t++) {
-        for(int y = 0; y < height; y++) {
+        for(int y = 0; y < max_y; y++) {
             int row_start = y * width * 3;
             int r_sum = 0, g_sum = 0, b_sum = 0, count = 0;
 
             for(int i = 0; i <= size; i++) {
                 int p = row_start + (i * 3);
                 if(i < width) {
-                    r_sum += image->framebuffer[p    ];
-                    g_sum += image->framebuffer[p + 1];
-                    b_sum += image->framebuffer[p + 2];
+                    r_sum += fb[p    ];
+                    g_sum += fb[p + 1];
+                    b_sum += fb[p + 2];
                     count++;
                 }
             }
 
-            for(int x = 0; x < width; x++) {
+            for(int x = 0; x < max_x; x++) {
                 int p = row_start + (x * 3);
 
-                image->scratch[p    ] = r_sum / count;
-                image->scratch[p + 1] = g_sum / count;
-                image->scratch[p + 2] = b_sum / count;
+                sb[p    ] = r_sum / count;
+                sb[p + 1] = g_sum / count;
+                sb[p + 2] = b_sum / count;
 
                 int leaving  = x - size;
                 int entering = x + size + 1;
 
                 if(leaving >= 0) {
                     int p = row_start + (leaving * 3);
-                    r_sum -= image->framebuffer[p    ];
-                    g_sum -= image->framebuffer[p + 1];
-                    b_sum -= image->framebuffer[p + 2];
+                    r_sum -= fb[p    ];
+                    g_sum -= fb[p + 1];
+                    b_sum -= fb[p + 2];
                     count--;
                 }
                 if(entering < width) {
                     int p = row_start + (entering * 3);
-                    r_sum += image->framebuffer[p    ];
-                    g_sum += image->framebuffer[p + 1];
-                    b_sum += image->framebuffer[p + 2];
+                    r_sum += fb[p    ];
+                    g_sum += fb[p + 1];
+                    b_sum += fb[p + 2];
                     count++;
                 }
             }
         }
 
-        for(int x = 0; x < width; x++) {
+        for(int x = 0; x < max_x; x++) {
             int col_start = x * 3;
             int stride = width * 3;
             int r_sum = 0, g_sum = 0, b_sum = 0, count = 0;
@@ -263,35 +494,35 @@ void blur(Image *image, int size) {
             for(int i = 0; i <= size; i++) {
                 int p = col_start + (i * stride);
                 if(i < height) {
-                    r_sum += image->scratch[p    ];
-                    g_sum += image->scratch[p + 1];
-                    b_sum += image->scratch[p + 2];
+                    r_sum += sb[p    ];
+                    g_sum += sb[p + 1];
+                    b_sum += sb[p + 2];
                     count++;
                 }
             }
 
-            for(int y = 0; y < height; y++) {
+            for(int y = 0; y < max_y; y++) {
                 int p = col_start + (y * stride);
 
-                image->framebuffer[p    ] = r_sum / count;
-                image->framebuffer[p + 1] = g_sum / count;
-                image->framebuffer[p + 2] = b_sum / count;
+                fb[p    ] = r_sum / count;
+                fb[p + 1] = g_sum / count;
+                fb[p + 2] = b_sum / count;
 
                 int leaving  = y - size;
                 int entering = y + size + 1;
 
                 if(leaving >= 0) {
                     int p = col_start + (leaving * stride);
-                    r_sum -= image->scratch[p    ];
-                    g_sum -= image->scratch[p + 1];
-                    b_sum -= image->scratch[p + 2];
+                    r_sum -= sb[p    ];
+                    g_sum -= sb[p + 1];
+                    b_sum -= sb[p + 2];
                     count--;
                 }
                 if(entering < height) {
                     int p = col_start + (entering * stride);
-                    r_sum += image->scratch[p    ];
-                    g_sum += image->scratch[p + 1];
-                    b_sum += image->scratch[p + 2];
+                    r_sum += sb[p    ];
+                    g_sum += sb[p + 1];
+                    b_sum += sb[p + 2];
                     count++;
                 }
             }
@@ -299,53 +530,145 @@ void blur(Image *image, int size) {
     }
 }
 
-void apply_efx(Image *image, EffectFlags *efx, EffectParams *params) {
-    memcpy(image->framebuffer, image->original, image->framebuffer_size);
-
-    int pixel_size = (int)(1 + params->pixel_size * 20);
-    int bit_depth = (int)(1 + params->bit_depth * 7);
-    float sine_length = (10 + params->sine_length * 400.0f);
-    float sine_amp = (params->sine_amp * 200.0f);
-    int threshold_val = (int)(20 + params->threshold_val * 220);
-    float exposure_val = (0.5f + params->exposure_val * 2.5f);
-    int contrast_val = (int)(((params->contrast_val * 2) - 0.5f) * 170);
-    float saturation_val = (params->saturation_val * 5.0f);
-    int blur_size = (int)(2 + params->blur_size * 38.0f);
-
-    if(efx->pixelate) {
-        pixelate(image, pixel_size);
-    }
-    if (efx->dither) {
-        dither(image, params->dither_mode, bit_depth, threshold_val);
-    }
-    if(efx->blur) {
-        blur(image, blur_size);
-    }
-    if(efx->warp) {
-        warp(image, params->warp_mode, sine_length, sine_amp);
+int init_efx(Efx efx_list[]) {
+    for(int i = 0; i < NUM_EFX; i++) {
+        efx_list[i] = (Efx){
+            .id = i,
+            .animate = false,
+            .x_split = 1.0f,
+            .y_split = 1.0f,
+            .params = {0.5f, 0.5f, 0.5f, 0.5f}};
     }
 
-    for (int y = 0; y < image->height; y++) { 
-        for (int x = 0; x < image->width; x++) {
-            int pixel_pos = (y * image->width + x) * 3;
+    efx_list[INVERT].name = "INVERT";
+    efx_list[INVERT].efx_func = invert;
+    efx_list[INVERT].num_params = 0;
 
-            int r = image->framebuffer[pixel_pos    ];
-            int g = image->framebuffer[pixel_pos + 1];
-            int b = image->framebuffer[pixel_pos + 2];
+    efx_list[MONO].name = "MONO";
+    efx_list[MONO].efx_func = mono;
+    efx_list[MONO].num_params = 0;
 
-            if(efx->mono)        { mono(&r, &g, &b); }
-            if(efx->quantize)    { quantize(&r, &g, &b, bit_depth); }
-            if(efx->contrast)    { contrast(&r, &g, &b, contrast_val); }
-            if(efx->saturation)  { saturation(&r, &g, &b, saturation_val); }
-            if(efx->invert && x >= image->width * params->invert_x)      { invert(&r, &g, &b); }
-            if(efx->exposure)    { exposure(&r, &g, &b, exposure_val); }
-            if(efx->threshold)   { threshold(&r, &g, &b, threshold_val, params->threshold_mode); }
-            if(efx->color_bias)  { color_bias(&r, &g, &b, params->color_bias); }
-            if(efx->color_shift) { color_shift(&r, &g, &b, params->color_shift_val); }
+    efx_list[THRESHOLD].name = "THRESHOLD";
+    efx_list[THRESHOLD].efx_func = threshold;
+    efx_list[THRESHOLD].num_params = 2;
+    efx_list[THRESHOLD].param_names[0] = "Threshold Mode";
+    efx_list[THRESHOLD].param_names[1] = "Threshold Val";
+   
+    efx_list[QUANTIZE].name = "QUANTIZE";
+    efx_list[QUANTIZE].efx_func = quantize;
+    efx_list[QUANTIZE].num_params = 1;
+    efx_list[QUANTIZE].param_names[0] = "Bit Depth";
 
-            image->framebuffer[pixel_pos    ] = (Uint8)r;
-            image->framebuffer[pixel_pos + 1] = (Uint8)g;
-            image->framebuffer[pixel_pos + 2] = (Uint8)b;
+    efx_list[SATURATION].name = "SATURATION";
+    efx_list[SATURATION].efx_func = saturation;
+    efx_list[SATURATION].num_params = 1;
+    efx_list[SATURATION].param_names[0] = "Saturation Val";
+    
+    efx_list[CONTRAST].name = "CONTRAST";
+    efx_list[CONTRAST].efx_func = contrast;
+    efx_list[CONTRAST].num_params = 1;
+    efx_list[CONTRAST].param_names[0] = "Contrast Val";
+
+    efx_list[EXPOSURE].name = "EXPOSURE";
+    efx_list[EXPOSURE].efx_func = exposure;
+    efx_list[EXPOSURE].num_params = 1;
+    efx_list[EXPOSURE].param_names[0] = "Exposure Val";
+
+    efx_list[COLOR_BIAS].name = "COLOR BIAS";
+    efx_list[COLOR_BIAS].efx_func = color_bias;
+    efx_list[COLOR_BIAS].num_params = 0;
+
+    efx_list[COLOR_SHIFT].name = "COLOR SHIFT";
+    efx_list[COLOR_SHIFT].efx_func = color_shift;
+    efx_list[COLOR_SHIFT].num_params = 1;
+    efx_list[COLOR_SHIFT].param_names[0] = "Shift Amount";
+
+    efx_list[WARP].name = "WARP";
+    efx_list[WARP].efx_func = warp;
+    efx_list[WARP].num_params = 3;
+    efx_list[WARP].param_names[0] = "Warp Mode";
+    efx_list[WARP].param_names[1] = "Sine Length";
+    efx_list[WARP].param_names[2] = "Sine Amp";
+    
+    efx_list[PIXELATE].name = "PIXELATE";
+    efx_list[PIXELATE].efx_func = pixelate;
+    efx_list[PIXELATE].num_params = 1;
+    efx_list[PIXELATE].param_names[0] = "Pixel Size";
+    
+    efx_list[DITHER].name = "DITHER";
+    efx_list[DITHER].efx_func = dither;
+    efx_list[DITHER].num_params  = 3;
+    efx_list[DITHER].param_names[0] = "Dither Mode";
+    efx_list[DITHER].param_names[1] = "Dither Threshold";
+    efx_list[DITHER].param_names[2] = "Dither Bit Depth";
+
+    efx_list[BLUR].name = "BLUR";
+    efx_list[BLUR].efx_func = blur;
+    efx_list[BLUR].num_params = 1;
+    efx_list[BLUR].param_names[0] = "Blur Size";
+
+    for(int i = 0; i < NUM_EFX; i++) {
+        if(efx_list[i].name == NULL || efx_list[i].efx_func == NULL) {
+            return 1;
         }
-    } 
+    }
+    return 0;
 }
+
+void append_to_pipeline(EfxPipeline *efx, EfxID id) {
+    if(efx->count < NUM_EFX && efx->efx_list[id].efx_func != NULL) {
+        for(int i = 0; i < efx->count; i++) {
+            if(efx->pipeline[i]->id == id) return;
+        }
+        efx->pipeline[efx->count] = &efx->efx_list[id];
+        efx->count++;
+    }
+}
+
+void remove_from_pipeline(EfxPipeline *efx, EfxID id) {
+    bool removed = false;
+    for(int i = 0; i < efx->count; i++) {
+        if(efx->pipeline[i]->id == id) {
+            efx->pipeline[i] = NULL;
+            removed = true;
+        } else {
+            if(removed) {
+                efx->pipeline[i - 1] = efx->pipeline[i];
+            }
+        }
+    }
+    if(removed) {
+        efx->count--;
+        efx->pipeline[efx->count] = NULL;
+    }
+}
+
+void swap_in_pipeline(EfxPipeline *efx, EfxID id_1, EfxID id_2) {
+    int idx_1 = -1;
+    int idx_2 = -1;
+    for(int i = 0; i < efx->count; i++) {
+        if(efx->pipeline[i]->id == id_1) { idx_1 = i; }
+        if(efx->pipeline[i]->id == id_2) { idx_2 = i; }
+    }
+    if(idx_1 != -1 && idx_2 != -1) {
+        Efx *temp = efx->pipeline[idx_1];
+        efx->pipeline[idx_1] = efx->pipeline[idx_2];
+        efx->pipeline[idx_2] = temp;
+    }
+}
+
+void clear_pipeline(EfxPipeline *efx) {
+    for(int i = 0; i < efx->count; i++) {
+        efx->pipeline[i] = NULL;
+    }
+    efx->count = 0;
+}
+
+void apply_efx(Image *image, EfxPipeline *efx) {
+    memcpy(image->framebuffer, image->original, image->framebuffer_size);
+    
+    for(int i = 0; i < efx->count; i++) {
+        efx->pipeline[i]->efx_func(image, efx->pipeline[i]->params, efx->pipeline[i]->x_split, efx->pipeline[i]->y_split);
+    }
+}
+

@@ -7,7 +7,6 @@
 
 typedef struct AppState {
     bool running;
-    bool needs_update;
     bool image_loaded;
 } AppState;
 

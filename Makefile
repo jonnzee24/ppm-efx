@@ -36,7 +36,7 @@ build-macos: clean ppm-efx
 	mkdir -p $(APP_MACOS) $(APP_CONTENTS) $(APP_FRAMEWORKS) $(APP_RESOURCES)
 	cp ppm-efx $(APP_MACOS)/ppm-efx
 	cp Info.plist $(APP_CONTENTS)/Info.plist
-	cp Aldrich-Regular.ttf $(APP_RESOURCES)/Aldrich-Regular.ttf
+	cp HiburMono.ttf $(APP_RESOURCES)/font.ttf
 	cp ppm-efx.icns $(APP_RESOURCES)/ppm-efx.icns
 
 	dylibbundler --overwrite-dir --bundle-deps         \

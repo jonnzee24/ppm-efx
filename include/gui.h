@@ -4,52 +4,30 @@
 #include <SDL3/SDL.h>
 #include <stdbool.h>
 
+#include "effects.h"
+
 typedef struct AppContext AppContext;
 typedef struct Image Image;
 
-typedef struct {
-    enum {
-        GENERIC,
-        EFX_BTN
-    } button_type;
+typedef struct Button {
     int x, y, w, h;
     char *text;
-    bool hovered;
     bool clicked;
+    bool hovered;
     void *(*on_click)(void *data);
     void *data;
 } Button;
 
-typedef enum {
+typedef enum ButtonIDs {
     LOAD_IMAGE,
     SAVE_IMAGE,
     RESET,
     RANDOMIZE,
     EXIT,
+    NUM_TOP_BUTTONS
+} TopBtnIDs;
 
-    WARP_MODE,
-    THRESHOLD_MODE,
-    COLOR_BIAS_MODE,
-    DITHER_MODE,
-
-    SATURATION,
-    CONTRAST,
-    EXPOSURE,
-    INVERT,
-    MONO,
-    THRESHOLD,
-    QUANTIZE,
-    COLOR_BIAS,
-    COLOR_SHIFT,
-    WARP,
-    PIXELATE,
-    DITHER,
-    BLUR,
-
-    NUM_BUTTONS
-} ButtonIDs;
-
-typedef struct {
+typedef struct Slider {
     int x, y, w, h;
     char *text;
     bool hovered;
@@ -57,32 +35,37 @@ typedef struct {
     void *data;
 } Slider;
 
-typedef enum {
-    SATURATION_VAL,
-    CONTRAST_VAL,
-    EXPOSURE_VAL,
-    INVERT_X,
-    THRESHOLD_VAL,
-    BIT_DEPTH,
-    COLOR_SHIFT_VAL,
-    PIXEL_SIZE,
-    SINE_LENGTH,
-    SINE_AMP,
-    BLUR_SIZE,
+typedef struct EfxCard {
+    EfxPipeline *pipeline;
+    EfxID id;
+    float x, y, w, h;
+    char *name;
+    int num_sliders;
+    Slider sliders[4];
+    Button x_button;
+    bool hovered;
+    bool dragging;
+} EfxCard;
 
-    NUM_SLIDERS
-} SliderIDs;
+typedef struct EfxButtonData {
+    EfxPipeline *efx;
+    EfxID id;
+} EfxButtonData;
 
-typedef struct {
-    Button buttons[NUM_BUTTONS];
-    Slider sliders[NUM_SLIDERS];
-} GuiState;
+typedef struct GuiContext {
+    Button top_buttons[NUM_TOP_BUTTONS];
+    EfxCard efx_cards[NUM_EFX];
+    Button add_efx_button;
+    Button efx_buttons[NUM_EFX];
+    EfxButtonData efx_button_data[NUM_EFX];
+    SDL_Window *add_efx_popup;
+    SDL_Renderer *add_efx_popup_renderer;
+    bool adding_efx;
+} GuiContext;
 
 int init_gui(AppContext *ctx, Image *image);
-void cleanup_gui(void);
-void update_gui(AppContext *ctx);
+void cleanup_gui(AppContext *ctx);
 void render_gui(AppContext *ctx, Image *image);
-void process_gui_events(SDL_Event *event, AppContext *ctx, Image *image);
-void draw_debug_info(AppContext *ctx, Image *image);
+void deal_gui_events(SDL_Event *event, AppContext *ctx);
 
 #endif
