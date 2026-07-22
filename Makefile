@@ -3,8 +3,9 @@ CFLAGS = -g -fcolor-diagnostics -std=gnu11 -Wall -Wextra -Werror -I./include `pk
 CFLAGS += -MMD -MP -O3
 LDFLAGS = `pkg-config --libs sdl3 sdl3-ttf` -lm
 
-CFLAGS += -arch arm64
-LDFLAGS += -arch arm64
+# When building for macos
+#CFLAGS += -arch arm64 -mmacosx-version-min=11.0
+#LDFLAGS += -arch arm64 -mmacosx-version-min=11.0
 
 BUILD_DIR = build
 

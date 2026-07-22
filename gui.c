@@ -215,6 +215,12 @@ void render_gui(AppContext *ctx, Image *image) {
     update_efx_cards(ctx);
 
     if(ctx->gui.adding_efx) {
+        SDL_SetWindowPosition(
+                ctx->gui.add_efx_popup,
+                ctx->gui.add_efx_button.x,
+                ctx->gui.add_efx_button.y + ctx->gui.add_efx_button.h + 10
+        );
+
         set_draw_color(ctx->gui.add_efx_popup_renderer, MID_GRAY);
         SDL_RenderClear(ctx->gui.add_efx_popup_renderer);
 
@@ -294,7 +300,7 @@ void process_gui_events(SDL_Event *event, AppContext *ctx) {
 
                 if(card->dragging) {
                     card->y += event->motion.yrel;
-                    float max_y = ctx->gui.efx_cards[ctx->efx.count - 1].y;
+                    float max_y = ctx->gui.add_efx_button.y - 10 - card->h;
                     card->y = clampf(card->y, MARGIN_Y/2, max_y);
                 }
             }
@@ -477,11 +483,10 @@ void update_efx_cards(AppContext *ctx) {
     int card_offset = 0;
     for(int i = 0; i < ctx->efx.count; i++) {
         EfxCard *card = &ctx->gui.efx_cards[i];
+        Efx *efx = ctx->efx.pipeline[i];
 
         card->num_sliders = 0;
         card->num_buttons = 0;
-
-        Efx *efx = ctx->efx.pipeline[i];
 
         card->x = ctx->sdl.win_width - MARGIN_RIGHT + 5;
         if(!card->dragging) {

@@ -89,7 +89,7 @@ int init_sdl(AppContext *ctx) {
     
     ctx->sdl.window = SDL_CreateWindow("PPM EFX", ctx->sdl.win_width, ctx->sdl.win_height, SDL_WINDOW_RESIZABLE);
     if(ctx->sdl.window == NULL) { return 1; }
-    SDL_SetWindowMinimumSize(ctx->sdl.window, 1600, 900);
+    SDL_SetWindowMinimumSize(ctx->sdl.window, 1200, 800);
 
     ctx->sdl.renderer = SDL_CreateRenderer(ctx->sdl.window, NULL);
     if(ctx->sdl.renderer == NULL) { return 1; }
