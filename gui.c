@@ -10,6 +10,7 @@ TTF_Font *font = NULL;
 typedef struct {
     char text[256];
     int w, h;
+    SDL_Color color;
     SDL_Texture *texture;
     SDL_Renderer *renderer;
 } CachedText;
@@ -75,6 +76,7 @@ int init_gui(AppContext *ctx, Image *image) {
     ctx->gui.top_buttons[SAVE_IMAGE].text = "Save Image";
     ctx->gui.top_buttons[SAVE_IMAGE].on_click = save_image;
     ctx->gui.top_buttons[SAVE_IMAGE].data = image;
+    ctx->gui.top_buttons[RANDOMIZE].disabled = true;
 
     ctx->gui.top_buttons[SAVE_IMAGE].text = "Save Image";
     ctx->gui.top_buttons[SAVE_IMAGE].on_click = save_image;
@@ -87,6 +89,7 @@ int init_gui(AppContext *ctx, Image *image) {
     ctx->gui.top_buttons[RANDOMIZE].text = "Randomize";
     ctx->gui.top_buttons[RANDOMIZE].on_click = randomize_efx;
     ctx->gui.top_buttons[RANDOMIZE].data = &ctx->efx;
+    ctx->gui.top_buttons[RANDOMIZE].disabled = true;
 
     ctx->gui.top_buttons[EXIT].text = "Exit";
     ctx->gui.top_buttons[EXIT].on_click = exit_application;
@@ -201,6 +204,11 @@ void *change_mode_3(void *data) {
 }
 
 void render_gui(AppContext *ctx, Image *image) {
+    if(ctx->state.image_loaded) {
+        ctx->gui.top_buttons[SAVE_IMAGE].disabled = false;
+    } else {
+        ctx->gui.top_buttons[SAVE_IMAGE].disabled = true;
+    }
     for(int i = 0; i < NUM_TOP_BUTTONS; i++) {
         draw_button(ctx->sdl.renderer, &ctx->gui.top_buttons[i]);
     }
@@ -225,6 +233,12 @@ void render_gui(AppContext *ctx, Image *image) {
         SDL_RenderClear(ctx->gui.add_efx_popup_renderer);
 
         for(int i = 0; i < NUM_EFX; i++) {
+            if(check_in_pipeline(&ctx->efx, ctx->efx.efx_list[i].id)) {
+                ctx->gui.efx_buttons[i].disabled = true;
+            } else {
+                ctx->gui.efx_buttons[i].disabled = false;
+            }
+
             draw_button(ctx->gui.add_efx_popup_renderer, &ctx->gui.efx_buttons[i]);
         }
 
@@ -263,7 +277,9 @@ void process_gui_events(SDL_Event *event, AppContext *ctx) {
             SDL_Point mouse_pos = {(int)event->motion.x, (int)event->motion.y};
             
             for(int i = 0; i < NUM_TOP_BUTTONS; i++) {
-                if(i == SAVE_IMAGE && !ctx->state.image_loaded) { continue; }
+                if(i == SAVE_IMAGE && !ctx->state.image_loaded) {
+                    continue;
+                }
                 handle_button_hover(mouse_pos, &ctx->gui.top_buttons[i]);
             }
 
@@ -410,7 +426,11 @@ void draw_text(SDL_Renderer *renderer, int x, int y, SDL_Color font_color, char 
 
 SDL_Texture *get_cached_text(SDL_Renderer *renderer, int *w, int *h, SDL_Color font_color, char *text) {
     for(int i = 0; i < num_cached_text; i++) {
-        if(strcmp(text, text_cache[i].text) == 0 && text_cache[i].renderer == renderer) {
+        bool colors_match = (font_color.r == text_cache[i].color.r) &&
+                            (font_color.g == text_cache[i].color.g) &&
+                            (font_color.b == text_cache[i].color.b);
+
+        if(strcmp(text, text_cache[i].text) == 0 && text_cache[i].renderer && colors_match) {
             *w = text_cache[i].w;
             *h = text_cache[i].h;
             return text_cache[i].texture;
@@ -430,6 +450,7 @@ SDL_Texture *get_cached_text(SDL_Renderer *renderer, int *w, int *h, SDL_Color f
         strcpy(entry->text, text);
         entry->w = text_w;
         entry->h = text_h;
+        entry->color = font_color;
         entry->texture = texture;
         entry->renderer = renderer;
     }
@@ -441,11 +462,12 @@ void draw_button(SDL_Renderer *renderer, Button *button) {
     SDL_FRect border_rect = {button->x, button->y, button->w, button->h};
     SDL_FRect bg_rect = {button->x + 2, button->y + 2, button->w - 4, button->h - 4};
 
-    if(button->hovered) { set_draw_color(renderer, ORANGE); }
+    if(button->hovered && !button->disabled) { set_draw_color(renderer, ORANGE); }
     else { set_draw_color(renderer, BLACK); }
     SDL_RenderFillRect(renderer, &border_rect);
 
-    if(button->hovered) { set_draw_color(renderer, MID_GRAY); }
+    if(button->hovered && !button->disabled) { set_draw_color(renderer, MID_GRAY); }
+    else if(button->disabled) { set_draw_color(renderer, DARKER_GRAY); }
     else { set_draw_color(renderer, DARK_GRAY); }
     SDL_RenderFillRect(renderer, &bg_rect);
 
@@ -453,7 +475,7 @@ void draw_button(SDL_Renderer *renderer, Button *button) {
     TTF_GetStringSize(font, button->text, 0, &text_w, &text_h);
     int text_x = (button->x + button->w/2) - (text_w/2);
     int text_y = (button->y + button->h/2) - (text_h/2);
-    draw_text(renderer, text_x, text_y, WHITE, button->text);
+    draw_text(renderer, text_x, text_y, button->disabled ? MID_GRAY : WHITE, button->text);
 }
 
 void draw_slider(SDL_Renderer *renderer, Slider *slider) {

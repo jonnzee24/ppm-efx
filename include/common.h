@@ -16,6 +16,7 @@
 #define WHITE (SDL_Color){250, 250, 250, 255}
 #define BLACK (SDL_Color){20, 20, 20, 255}
 #define DARK_GRAY (SDL_Color){98, 98, 98, 255}
+#define DARKER_GRAY (SDL_Color){60, 60, 60, 255}
 #define LIGHT_GRAY (SDL_Color){147, 147, 147, 255}
 #define MID_GRAY (SDL_Color){124,124,124,255}
 #define ORANGE (SDL_Color){194, 131, 96, 255}
@@ -70,12 +71,12 @@ typedef struct AppState {
     bool image_needs_update;
 } AppState;
 
-struct AppContext {
+typedef struct AppContext {
     AppState state;
     SDLContext sdl;
     GuiContext gui;
     UserParams usr;
     EfxPipeline efx;
-};
+} AppContext;
 
 #endif

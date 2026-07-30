@@ -49,6 +49,7 @@ void append_to_pipeline(EfxPipeline *efx, EfxID id);
 void remove_from_pipeline(EfxPipeline *efx, EfxID id);
 void swap_in_pipeline(EfxPipeline *efx, EfxID id_1, EfxID id_2);
 void clear_pipeline(EfxPipeline *efx);
+bool check_in_pipeline(EfxPipeline *efx, EfxID id);
 void apply_efx(Image *image, EfxPipeline *efx);
 
 #endif

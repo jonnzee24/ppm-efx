@@ -14,6 +14,7 @@ typedef struct Button {
     char *text;
     bool clicked;
     bool hovered;
+    bool disabled;
     void *(*on_click)(void *data);
     void *data;
 } Button;

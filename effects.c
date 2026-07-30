@@ -366,6 +366,7 @@ void color_bias(Image *image, float params[], float x_split, float y_split) {
     int max_y = (int)(image->height * y_split);
 
     int bias = (int)(params[0] * 2);
+    float amount = 1.0f - params[1];
  
     uint8_t *fb = image->framebuffer;
     
@@ -378,14 +379,14 @@ void color_bias(Image *image, float params[], float x_split, float y_split) {
             uint8_t b = fb[pixel_pos + 2];
 
             if(bias == 0) {
-                g = g / 3;
-                b = b / 3;
+                g = g * amount;
+                b = b * amount;
             } else if(bias == 1) {
-                r = r / 3;
-                b = b / 3;
+                r = r * amount;
+                b = b * amount;
             } else if(bias == 2) {
-                r = r / 3;
-                g = g / 3;
+                r = r * amount;
+                g = g * amount;
             }
 
             fb[pixel_pos    ] = r;
@@ -575,9 +576,11 @@ int init_efx(Efx efx_list[]) {
 
     efx_list[COLOR_BIAS].name = "COLOR BIAS";
     efx_list[COLOR_BIAS].efx_func = color_bias;
-    efx_list[COLOR_BIAS].num_params = 1;
+    efx_list[COLOR_BIAS].num_params = 2;
     efx_list[COLOR_BIAS].param_names[0] = "Change Color Bias";
     efx_list[COLOR_BIAS].param_types[0] = 1;
+    efx_list[COLOR_BIAS].param_names[1] = "Bias Val";
+    efx_list[COLOR_BIAS].param_types[1] = 0;
 
     efx_list[COLOR_SHIFT].name = "COLOR SHIFT";
     efx_list[COLOR_SHIFT].efx_func = color_shift;
@@ -665,6 +668,15 @@ void swap_in_pipeline(EfxPipeline *efx, EfxID id_1, EfxID id_2) {
         efx->pipeline[idx_1] = efx->pipeline[idx_2];
         efx->pipeline[idx_2] = temp;
     }
+}
+
+bool check_in_pipeline(EfxPipeline *efx, EfxID id) {
+    for (int i = 0; i < efx->count; i++) {
+        if(efx->pipeline[i]->id == id) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void clear_pipeline(EfxPipeline *efx) {
