@@ -15,7 +15,7 @@ typedef struct {
     SDL_Renderer *renderer;
 } CachedText;
 
-#define TEXT_CACHE_MAX 64
+#define TEXT_CACHE_MAX 256
 CachedText text_cache[TEXT_CACHE_MAX];
 int num_cached_text = 0;
 
@@ -76,15 +76,10 @@ int init_gui(AppContext *ctx, Image *image) {
     ctx->gui.top_buttons[SAVE_IMAGE].text = "Save Image";
     ctx->gui.top_buttons[SAVE_IMAGE].on_click = save_image;
     ctx->gui.top_buttons[SAVE_IMAGE].data = image;
-    ctx->gui.top_buttons[RANDOMIZE].disabled = true;
 
-    ctx->gui.top_buttons[SAVE_IMAGE].text = "Save Image";
-    ctx->gui.top_buttons[SAVE_IMAGE].on_click = save_image;
-    ctx->gui.top_buttons[SAVE_IMAGE].data = image;
-
-    ctx->gui.top_buttons[RESET].text = "Reset";
-    ctx->gui.top_buttons[RESET].on_click = reset_efx;
-    ctx->gui.top_buttons[RESET].data = &ctx->efx;
+    ctx->gui.top_buttons[RESET_EFX].text = "Reset";
+    ctx->gui.top_buttons[RESET_EFX].on_click = reset_efx;
+    ctx->gui.top_buttons[RESET_EFX].data = &ctx->efx;
 
     ctx->gui.top_buttons[RANDOMIZE].text = "Randomize";
     ctx->gui.top_buttons[RANDOMIZE].on_click = randomize_efx;
@@ -141,7 +136,7 @@ void cleanup_gui(AppContext *ctx) {
     }
     TTF_Quit();
 
-    for(int i = 0; i <= num_cached_text; i++) {
+    for(int i = 0; i < num_cached_text; i++) {
         SDL_DestroyTexture(text_cache[i].texture);
     }
     if(ctx->gui.add_efx_popup) {
@@ -430,7 +425,7 @@ SDL_Texture *get_cached_text(SDL_Renderer *renderer, int *w, int *h, SDL_Color f
                             (font_color.g == text_cache[i].color.g) &&
                             (font_color.b == text_cache[i].color.b);
 
-        if(strcmp(text, text_cache[i].text) == 0 && text_cache[i].renderer && colors_match) {
+        if(strcmp(text, text_cache[i].text) == 0 && text_cache[i].renderer == renderer && colors_match) {
             *w = text_cache[i].w;
             *h = text_cache[i].h;
             return text_cache[i].texture;

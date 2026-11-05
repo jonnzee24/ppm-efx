@@ -17,7 +17,6 @@ typedef enum {
     COLOR_BIAS,
     COLOR_SHIFT,
     WARP,
-    PIXELATE,
     DITHER,
     BLUR,
 

@@ -50,6 +50,8 @@ void *load_image(void *data) {
         image->path = NULL;
         return NULL;
     }
+    image->org_w = image->width;
+    image->org_h = image->height;
 
     image->framebuffer_size = (image->width * image->height * 3);
     image->framebuffer = malloc(image->framebuffer_size);

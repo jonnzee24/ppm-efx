@@ -9,6 +9,7 @@
 #include "file_io.h"
 #include "gui.h"
 
+
 #define MARGIN_Y 60
 #define MARGIN_LEFT 30
 #define MARGIN_RIGHT 400
@@ -43,6 +44,7 @@ typedef struct Image {
     uint8_t *framebuffer;
     size_t framebuffer_size;
     uint8_t *original;
+    int org_w, org_h;
     uint8_t *scratch;
 
     SDL_Texture *texture;
@@ -78,5 +80,7 @@ typedef struct AppContext {
     UserParams usr;
     EfxPipeline efx;
 } AppContext;
+
+int resize_image(Image *image, int new_w, int new_h);
 
 #endif

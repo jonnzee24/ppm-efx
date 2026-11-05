@@ -396,36 +396,6 @@ void color_bias(Image *image, float params[], float x_split, float y_split) {
     }
 }
 
-void pixelate(Image *image, float params[], float x_split, float y_split) {
-    int max_x = (int)(image->width * x_split);
-    int max_y = (int)(image->height * y_split);
-
-    int pixel_size = (int)(2 + params[0] * 38);
- 
-    uint8_t *fb = image->framebuffer;
-
-    for(int y = 0; y < max_y; y += pixel_size) {
-        for(int x = 0; x < max_x; x += pixel_size) {
-            int pixel_pos = (y * image->width + x) * 3;
-
-            uint8_t r = fb[pixel_pos];
-            uint8_t g = fb[pixel_pos + 1];
-            uint8_t b = fb[pixel_pos + 2];
-
-            for(int ph = 0; ph < pixel_size && (ph + y) < max_y; ph++) {
-                for(int pw = 0; pw < pixel_size && (pw + x) < max_x; pw++) {
-                    int pixel_pos_2 = pixel_pos + (ph * image->width + pw) * 3;
-                    if(pixel_pos_2 <= image->width * image->height * 3) {
-                        fb[pixel_pos_2] = r;
-                        fb[pixel_pos_2 + 1] = g;
-                        fb[pixel_pos_2 + 2] = b;
-                    }
-                }
-            }
-        }
-    }
-}
-
 void blur(Image *image, float params[], float x_split, float y_split) {
     int max_x = (int)(image->width * x_split);
     int max_y = (int)(image->height * y_split);
@@ -598,12 +568,6 @@ int init_efx(Efx efx_list[]) {
     efx_list[WARP].param_names[2] = "Sine Amp";
     efx_list[WARP].param_types[2] = 0;
     
-    efx_list[PIXELATE].name = "PIXELATE";
-    efx_list[PIXELATE].efx_func = pixelate;
-    efx_list[PIXELATE].num_params = 1;
-    efx_list[PIXELATE].param_names[0] = "Pixel Size";
-    efx_list[PIXELATE].param_types[0] = 0;
-    
     efx_list[DITHER].name = "DITHER";
     efx_list[DITHER].efx_func = dither;
     efx_list[DITHER].num_params  = 3;
@@ -693,4 +657,3 @@ void apply_efx(Image *image, EfxPipeline *efx) {
         efx->pipeline[i]->efx_func(image, efx->pipeline[i]->params, efx->pipeline[i]->x_split, efx->pipeline[i]->y_split);
     }
 }
-

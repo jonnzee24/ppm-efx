@@ -29,7 +29,7 @@ int main(void) {
     image.needs_reload = false;
    
     if(init_efx(ctx.efx.efx_list) != 0) {
-        perror("Failed to initialize the EFX");
+        perror("Failed to initialize the image effects.");
         goto exit;
     }
     if(init_sdl(&ctx) != 0) {
