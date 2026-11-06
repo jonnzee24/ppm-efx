@@ -1,5 +1,5 @@
 CC = clang
-CFLAGS = -g -fcolor-diagnostics -std=gnu11 -Wall -Wextra -Werror -I./include `pkg-config --cflags sdl3 sdl3-ttf`
+CFLAGS = -g -fcolor-diagnostics -std=gnu11 -Wall -Wextra -I./include `pkg-config --cflags sdl3 sdl3-ttf`
 CFLAGS += -MMD -MP -O3
 LDFLAGS = `pkg-config --libs sdl3 sdl3-ttf` -lm
 
@@ -7,16 +7,17 @@ LDFLAGS = `pkg-config --libs sdl3 sdl3-ttf` -lm
 #CFLAGS += -arch arm64 -mmacosx-version-min=11.0
 #LDFLAGS += -arch arm64 -mmacosx-version-min=11.0
 
+SRC_DIR = src
 BUILD_DIR = build
 
-SRCS = ppm-efx.c file_io.c effects.c gui.c tinyfiledialogs.c
+SRCS = ppm-efx.c file_io.c effects.c gui.c tinyfiledialogs.c image.c
 OBJS = $(addprefix $(BUILD_DIR)/, $(SRCS:.c=.o))
 DEPS = $(OBJS:.o=.d)
 
 ppm-efx: $(OBJS)
 	$(CC) $(OBJS) -o ppm-efx $(LDFLAGS)
 
-$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR):

@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <SDL3/SDL.h>
 
 typedef struct Image Image;
 
@@ -27,14 +28,13 @@ typedef struct Efx {
     EfxID id;
     char *name;
     bool animate;
-    float x_split, y_split;
 
     int num_params;
     float params[4];
     char *param_names[4];
     int param_types[4]; // O is for sliders and 1 is for buttons
     
-    void (*efx_func)(Image *image, float params[], float x_split, float y_split);
+    void (*efx_func)(Image *image, float params[]);
 } Efx;
 
 typedef struct EfxPipeline {

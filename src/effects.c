@@ -3,19 +3,17 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "common.h"
+#include "image.h"
 #include "effects.h"
+#include "utils.h"
 
-void invert(Image *image, float params[], float x_split, float y_split) {
+void invert(Image *image, float params[]) {
     (void)params;
-
-    int max_x = (int)(image->width * x_split);
-    int max_y = (int)(image->height * y_split);
 
     uint8_t *fb = image->framebuffer;
     
-    for(int y = 0; y < max_y; y++) {
-        for(int x = 0; x < max_x; x++) {
+    for(int y = 0; y < image->height; y++) {
+        for(int x = 0; x < image->width; x++) {
             int pixel_pos = (y * image->width + x) * 3;
 
             uint8_t r = fb[pixel_pos    ];
@@ -33,16 +31,12 @@ void invert(Image *image, float params[], float x_split, float y_split) {
     }
 }
 
-void mono(Image *image, float params[], float x_split, float y_split) {
+void mono(Image *image, float params[]) {
     (void)params;
-
-    int max_x = (int)(image->width * x_split);
-    int max_y = (int)(image->height * y_split);
-
     uint8_t *fb = image->framebuffer;
     
-    for(int y = 0; y < max_y; y++) {
-        for(int x = 0; x < max_x; x++) {
+    for(int y = 0; y < image->height; y++) {
+        for(int x = 0; x < image->height; x++) {
             int pixel_pos = (y * image->width + x) * 3;
 
             uint8_t r = fb[pixel_pos    ];
@@ -59,17 +53,15 @@ void mono(Image *image, float params[], float x_split, float y_split) {
     }
 }
 
-void threshold(Image *image, float params[], float x_split, float y_split) {
-    int max_x = (int)(image->width * x_split);
-    int max_y = (int)(image->height * y_split);
+void threshold(Image *image, float params[]) {
 
     int threshold_mode = (int)(params[0] * 2);
     int threshold_val = (int)(20 + params[1] * 200);
 
     uint8_t *fb = image->framebuffer;
 
-    for(int y = 0; y < max_y; y++) {
-        for(int x = 0; x < max_x; x++) {
+    for(int y = 0; y < image->height; y++) {
+        for(int x = 0; x < image->width; x++) {
             int pixel_pos = (y * image->width + x) * 3;
 
             uint8_t r = fb[pixel_pos    ];
@@ -99,18 +91,15 @@ void threshold(Image *image, float params[], float x_split, float y_split) {
     }
 }
 
-void quantize(Image *image, float params[], float x_split, float y_split) {
-    int max_x = (int)(image->width * x_split);
-    int max_y = (int)(image->height * y_split);
-    
+void quantize(Image *image, float params[]) {
     int bit_depth = (int)(1 + params[0] * 7);
     int levels = 1 << bit_depth;
     int bucket_size = 256 / levels;
 
     uint8_t *fb = image->framebuffer;
 
-    for(int y = 0; y < max_y; y++) {
-        for(int x = 0; x < max_x; x++) {
+    for(int y = 0; y < image->height; y++) {
+        for(int x = 0; x < image->width; x++) {
             int pixel_pos = (y * image->width + x) * 3;
 
             uint8_t r = fb[pixel_pos    ];
@@ -128,23 +117,20 @@ void quantize(Image *image, float params[], float x_split, float y_split) {
     }
 }
 
-void warp(Image *image, float params[], float x_split, float y_split) {
-    int max_x = (int)(image->width * x_split);
-    int max_y = (int)(image->height * y_split);
-
-    int warp_mode = (int)(params[0] * 3);
+void warp(Image *image, float params[]) {
+    int warp_mode = (int)(params[0] * 2);
     float sine_length = (10 + params[1] * 400.0f);
     float sine_amp = (params[2] * 200.0f);
 
     memcpy(image->scratch, image->framebuffer, image->framebuffer_size);
 
-    for(int y = 0; y < max_y; y++) {
+    for(int y = 0; y < image->height; y++) {
         float sine_offset = 0;
         if(warp_mode == 3) {
             sine_offset = sin((2.0f * M_PI * y) / sine_length) * sine_amp;
         }
 
-        for(int x = 0; x < max_x; x++) {
+        for(int x = 0; x < image->width; x++) {
             int x_pos = x;
             int y_pos = y;
 
@@ -156,10 +142,6 @@ void warp(Image *image, float params[], float x_split, float y_split) {
                 y_pos = image->height - y;
             } 
             if(warp_mode == 2) {
-                x_pos = image->width - x;
-                y_pos = image->height - y;
-            } 
-            if(warp_mode == 3) {
                 x_pos += sine_offset;
             }
 
@@ -176,10 +158,7 @@ void warp(Image *image, float params[], float x_split, float y_split) {
     }
 }
 
-void dither(Image *image, float params[], float x_split, float y_split) {
-    int max_x = (int)(image->width * x_split);
-    int max_y = (int)(image->height * y_split);
-
+void dither(Image *image, float params[]) {
     int dither_mode = (int)(params[0] * 2);
     int threshold = (int)(20 + params[1] * 160);
     int bit_depth = (int)(1 + 7 * params[2]);
@@ -187,8 +166,8 @@ void dither(Image *image, float params[], float x_split, float y_split) {
     uint8_t *fb = image->framebuffer;
     int stride = image->width * 3;
 
-    for(int y = 0; y < max_y; y++) {
-        for(int x = 0; x < max_x; x++) {
+    for(int y = 0; y < image->height; y++) {
+        for(int x = 0; x < image->width; x++) {
             int pixel_pos = (y * image->width + x) * 3;
 
             int op_r = fb[pixel_pos    ];
@@ -236,7 +215,7 @@ void dither(Image *image, float params[], float x_split, float y_split) {
                 }
             }
             if(dither_mode == 2) {
-                uint8_t luminance = (fb[pixel_pos] + fb[pixel_pos + 1] + fb[pixel_pos]) / 3;
+                uint8_t luminance = (fb[pixel_pos] + fb[pixel_pos + 1] + fb[pixel_pos + 2]) / 3;
                 fb[pixel_pos    ] = luminance < threshold ? 0 : fb[pixel_pos];
                 fb[pixel_pos + 1] = luminance < threshold ? 0 : fb[pixel_pos + 1];
                 fb[pixel_pos + 2] = luminance < threshold ? 0 : fb[pixel_pos + 2];
@@ -246,16 +225,13 @@ void dither(Image *image, float params[], float x_split, float y_split) {
     }
 }
 
-void color_shift(Image *image, float params[], float x_split, float y_split) {
-    int max_x = (int)(image->width * x_split);
-    int max_y = (int)(image->height * y_split);
-
+void color_shift(Image *image, float params[]) {
     float shift = params[0];
 
     uint8_t *fb = image->framebuffer;
     
-    for(int y = 0; y < max_y; y++) {
-        for(int x = 0; x < max_x; x++) {
+    for(int y = 0; y < image->height; y++) {
+        for(int x = 0; x < image->width; x++) {
             int pixel_pos = (y * image->width + x) * 3;
 
             uint8_t r = fb[pixel_pos    ];
@@ -277,16 +253,13 @@ void color_shift(Image *image, float params[], float x_split, float y_split) {
     }
 }
 
-void exposure(Image *image, float params[], float x_split, float y_split) {
-    int max_x = (int)(image->width * x_split);
-    int max_y = (int)(image->height * y_split);
-
+void exposure(Image *image, float params[]) {
     float exposure_val = (0.5f + params[0] * 2.5f);
 
     uint8_t *fb = image->framebuffer;
     
-    for(int y = 0; y < max_y; y++) {
-        for(int x = 0; x < max_x; x++) {
+    for(int y = 0; y < image->height; y++) {
+        for(int x = 0; x < image->width; x++) {
             int pixel_pos = (y * image->width + x) * 3;
 
             uint8_t r = fb[pixel_pos    ];
@@ -304,17 +277,14 @@ void exposure(Image *image, float params[], float x_split, float y_split) {
     }
 }
 
-void contrast(Image *image, float params[], float x_split, float y_split) {
-    int max_x = (int)(image->width * x_split);
-    int max_y = (int)(image->height * y_split);
-
+void contrast(Image *image, float params[]) {
     int contrast_val = (int)(((params[0] * 2) - 0.5f) * 170);
     float factor = 259.0f * ((contrast_val + 255)) / (255 * (259 - contrast_val));
     
     uint8_t *fb = image->framebuffer;
     
-    for(int y = 0; y < max_y; y++) {
-        for(int x = 0; x < max_x; x++) {
+    for(int y = 0; y < image->height; y++) {
+        for(int x = 0; x < image->width; x++) {
             int pixel_pos = (y * image->width + x) * 3;
 
             uint8_t r = fb[pixel_pos    ];
@@ -332,16 +302,13 @@ void contrast(Image *image, float params[], float x_split, float y_split) {
     }
 }
 
-void saturation(Image *image, float params[], float x_split, float y_split) {
-    int max_x = (int)(image->width * x_split);
-    int max_y = (int)(image->height * y_split);
-
+void saturation(Image *image, float params[]) {
     float saturation_val = (params[0] * 5.0f);
         
     uint8_t *fb = image->framebuffer;
     
-    for(int y = 0; y < max_y; y++) {
-        for(int x = 0; x < max_x; x++) {
+    for(int y = 0; y < image->height; y++) {
+        for(int x = 0; x < image->width; x++) {
             int pixel_pos = (y * image->width + x) * 3;
 
             uint8_t r = fb[pixel_pos    ];
@@ -361,17 +328,14 @@ void saturation(Image *image, float params[], float x_split, float y_split) {
     }
 }
 
-void color_bias(Image *image, float params[], float x_split, float y_split) {
-    int max_x = (int)(image->width * x_split);
-    int max_y = (int)(image->height * y_split);
-
+void color_bias(Image *image, float params[]) {
     int bias = (int)(params[0] * 2);
     float amount = 1.0f - params[1];
  
     uint8_t *fb = image->framebuffer;
     
-    for(int y = 0; y < max_y; y++) {
-        for(int x = 0; x < max_x; x++) {
+    for(int y = 0; y < image->height; y++) {
+        for(int x = 0; x < image->width; x++) {
             int pixel_pos = (y * image->width + x) * 3;
 
             uint8_t r = fb[pixel_pos    ];
@@ -396,10 +360,7 @@ void color_bias(Image *image, float params[], float x_split, float y_split) {
     }
 }
 
-void blur(Image *image, float params[], float x_split, float y_split) {
-    int max_x = (int)(image->width * x_split);
-    int max_y = (int)(image->height * y_split);
-
+void blur(Image *image, float params[]) {
     int size = (int)(2 + params[0] * 38);
  
     uint8_t *fb = image->framebuffer;
@@ -409,7 +370,7 @@ void blur(Image *image, float params[], float x_split, float y_split) {
     int height = image->height;
 
     for(int t = 0; t < 3; t++) {
-        for(int y = 0; y < max_y; y++) {
+        for(int y = 0; y < image->height; y++) {
             int row_start = y * width * 3;
             int r_sum = 0, g_sum = 0, b_sum = 0, count = 0;
 
@@ -423,7 +384,7 @@ void blur(Image *image, float params[], float x_split, float y_split) {
                 }
             }
 
-            for(int x = 0; x < max_x; x++) {
+            for(int x = 0; x < image->width; x++) {
                 int p = row_start + (x * 3);
 
                 sb[p    ] = r_sum / count;
@@ -450,7 +411,7 @@ void blur(Image *image, float params[], float x_split, float y_split) {
             }
         }
 
-        for(int x = 0; x < max_x; x++) {
+        for(int x = 0; x < image->width; x++) {
             int col_start = x * 3;
             int stride = width * 3;
             int r_sum = 0, g_sum = 0, b_sum = 0, count = 0;
@@ -465,7 +426,7 @@ void blur(Image *image, float params[], float x_split, float y_split) {
                 }
             }
 
-            for(int y = 0; y < max_y; y++) {
+            for(int y = 0; y < image->height; y++) {
                 int p = col_start + (y * stride);
 
                 fb[p    ] = r_sum / count;
@@ -498,9 +459,6 @@ int init_efx(Efx efx_list[]) {
     for(int i = 0; i < NUM_EFX; i++) {
         efx_list[i] = (Efx){
             .id = i,
-            .animate = false,
-            .x_split = 1.0f,
-            .y_split = 1.0f,
             .params = {0.5f, 0.5f, 0.5f, 0.5f}};
     }
 
@@ -654,6 +612,6 @@ void apply_efx(Image *image, EfxPipeline *efx) {
     memcpy(image->framebuffer, image->original, image->framebuffer_size);
     
     for(int i = 0; i < efx->count; i++) {
-        efx->pipeline[i]->efx_func(image, efx->pipeline[i]->params, efx->pipeline[i]->x_split, efx->pipeline[i]->y_split);
+        efx->pipeline[i]->efx_func(image, efx->pipeline[i]->params);
     }
 }

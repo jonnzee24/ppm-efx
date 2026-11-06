@@ -8,12 +8,15 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+#include "stb_image_resize2.h"
+
+#include "image.h"
 #include "common.h"
+#include "utils.h"
 
 int init_sdl(AppContext *ctx);
-int create_image_texture(SDLContext *sdl, Image *image);
 void update(AppContext *ctx, Image *image);
-void recenter_image(AppContext *ctx, Image *image);
 void render(AppContext *ctx, Image *image);
 void process_events(AppContext *ctx, Image *image);
 
@@ -23,9 +26,9 @@ int main(void) {
     Image image = {0};
 
     ctx.state.running = true;
-    ctx.state.image_loaded = false;
     ctx.state.image_needs_update = false;
 
+    image.loaded = false;
     image.needs_reload = false;
    
     if(init_efx(ctx.efx.efx_list) != 0) {
@@ -58,7 +61,6 @@ int main(void) {
             ctx.usr.scale = 1.0f;
 
             image.needs_reload = false;
-            ctx.state.image_loaded = true;
             ctx.state.image_needs_update = true;
         }
         update(&ctx, &image);
@@ -67,10 +69,10 @@ int main(void) {
     }
    
 exit:
-    if(ctx.sdl.window)   SDL_DestroyWindow(ctx.sdl.window);
-    if(ctx.sdl.renderer) SDL_DestroyRenderer(ctx.sdl.renderer);
-    if(image.texture)    SDL_DestroyTexture(image.texture);
     cleanup_gui(&ctx);
+    if(image.texture)    SDL_DestroyTexture(image.texture);
+    if(ctx.sdl.renderer) SDL_DestroyRenderer(ctx.sdl.renderer);
+    if(ctx.sdl.window)   SDL_DestroyWindow(ctx.sdl.window);
     SDL_Quit();
 
     if(image.path)        free(image.path);
@@ -99,23 +101,6 @@ int init_sdl(AppContext *ctx) {
     return 0;
 }
 
-int create_image_texture(SDLContext *sdl, Image *image) {
-    image->texture = SDL_CreateTexture(
-            sdl->renderer,
-            SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING,
-            image->width, image->height);
-    if(image->texture == NULL) { return 1; }
-
-    SDL_SetTextureScaleMode(image->texture, SDL_SCALEMODE_NEAREST);
-    image->texture_rect = (SDL_FRect){
-        (sdl->image_vp.x + sdl->image_vp.w / 2) - (image->width / 2),
-        (sdl->image_vp.y + sdl->image_vp.h / 2) - (image->height / 2),
-        image->width,
-        image->height
-    };
-    return 0;
-}
-
 void update(AppContext *ctx, Image *image) {
     ctx->sdl.image_vp.w = ctx->sdl.win_width - MARGIN_LEFT - MARGIN_RIGHT;
     ctx->sdl.image_vp.h = ctx->sdl.win_height - MARGIN_Y;
@@ -131,20 +116,11 @@ void update(AppContext *ctx, Image *image) {
     image->texture_rect.x = clampf(image->texture_rect.x, img_min_x, img_max_x);
     image->texture_rect.y = clampf(image->texture_rect.y, img_min_y, img_max_y);
 
-    if(ctx->state.image_needs_update) {
+    if(image->loaded && ctx->state.image_needs_update) {
         apply_efx(image, &ctx->efx);
         SDL_UpdateTexture(image->texture, NULL, image->framebuffer, image->width * 3);
         ctx->state.image_needs_update = false;
     }
-}
-
-void recenter_image(AppContext *ctx, Image *image) {
-    ctx->sdl.image_vp.w = ctx->sdl.win_width - MARGIN_LEFT - MARGIN_RIGHT;
-    ctx->sdl.image_vp.h = ctx->sdl.win_height - MARGIN_Y;
-    image->texture_rect.w = image->width  * ctx->usr.scale;
-    image->texture_rect.h = image->height * ctx->usr.scale;
-    image->texture_rect.x = (ctx->sdl.image_vp.x + ctx->sdl.image_vp.w / 2) - (image->texture_rect.w / 2);
-    image->texture_rect.y = (ctx->sdl.image_vp.y + ctx->sdl.image_vp.h / 2) - (image->texture_rect.h / 2);
 }
 
 void render(AppContext *ctx, Image *image) {
@@ -157,7 +133,7 @@ void render(AppContext *ctx, Image *image) {
     
     render_gui(ctx, image);
 
-    if(ctx->state.image_loaded) {
+    if(image->loaded) {
         SDL_SetRenderClipRect(ctx->sdl.renderer, &ctx->sdl.image_vp);
         SDL_RenderTexture(ctx->sdl.renderer, image->texture, NULL, &image->texture_rect);
         SDL_SetRenderClipRect(ctx->sdl.renderer, NULL);

@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+#include "image.h"
 #include "common.h"
 #include "tinyfiledialogs.h"
 
@@ -20,6 +21,8 @@ void *load_image(void *data) {
     if(image_path == NULL) {
         return NULL;
     }
+
+    image->loaded = false;
 
     if (image->path) {
         free(image->path);
@@ -72,16 +75,21 @@ void *load_image(void *data) {
         image->path = NULL;
         image->original = NULL;
         image->scratch = NULL;
+        image->framebuffer = NULL;
         return NULL;
     }
     memcpy(image->scratch, image->original, image->framebuffer_size);
 
+    image->loaded = true;
     image->needs_reload = true;
     return NULL;
 }
 
 void *save_image(void *data) {
     Image *image = (Image *)data;
+    if(!image->loaded) {
+        return NULL;
+    }
 
     const char *filter_patterns[1] = {"*.png"};
     const char *output_path = tinyfd_saveFileDialog("Save image", "./output.png", 1, filter_patterns, NULL);

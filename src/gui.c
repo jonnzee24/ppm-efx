@@ -3,12 +3,14 @@
 #include <stdlib.h>
 
 #include "common.h"
+#include "image.h"
 #include "gui.h"
+#include "utils.h"
 
 TTF_Font *font = NULL;
 
 typedef struct {
-    char text[256];
+    char *text;
     int w, h;
     SDL_Color color;
     SDL_Texture *texture;
@@ -77,6 +79,10 @@ int init_gui(AppContext *ctx, Image *image) {
     ctx->gui.top_buttons[SAVE_IMAGE].on_click = save_image;
     ctx->gui.top_buttons[SAVE_IMAGE].data = image;
 
+    ctx->gui.top_buttons[SCALE_IMAGE].text = "Scale Image";
+    ctx->gui.top_buttons[SCALE_IMAGE].on_click = randomize_efx; // temprary dummy callback before implementation of scale_image is done
+    ctx->gui.top_buttons[SCALE_IMAGE].data = image;
+
     ctx->gui.top_buttons[RESET_EFX].text = "Reset";
     ctx->gui.top_buttons[RESET_EFX].on_click = reset_efx;
     ctx->gui.top_buttons[RESET_EFX].data = &ctx->efx;
@@ -139,6 +145,11 @@ void cleanup_gui(AppContext *ctx) {
     for(int i = 0; i < num_cached_text; i++) {
         SDL_DestroyTexture(text_cache[i].texture);
     }
+
+    if(ctx->gui.add_efx_popup_renderer) {
+        SDL_DestroyRenderer(ctx->gui.add_efx_popup_renderer);
+    }
+
     if(ctx->gui.add_efx_popup) {
         SDL_DestroyWindow(ctx->gui.add_efx_popup);
     }
@@ -199,7 +210,7 @@ void *change_mode_3(void *data) {
 }
 
 void render_gui(AppContext *ctx, Image *image) {
-    if(ctx->state.image_loaded) {
+    if(image->loaded) {
         ctx->gui.top_buttons[SAVE_IMAGE].disabled = false;
     } else {
         ctx->gui.top_buttons[SAVE_IMAGE].disabled = true;
@@ -208,7 +219,7 @@ void render_gui(AppContext *ctx, Image *image) {
         draw_button(ctx->sdl.renderer, &ctx->gui.top_buttons[i]);
     }
 
-    if(ctx->state.image_loaded) {
+    if(image->loaded) {
         int path_w, path_h;
         TTF_GetStringSize(font, image->path, 0, &path_w, &path_h);
         draw_text(ctx->sdl.renderer, ctx->sdl.win_width/2 - path_w/2,
@@ -259,7 +270,7 @@ void deal_gui_events(SDL_Event *event, AppContext *ctx) {
         case SDL_EVENT_MOUSE_BUTTON_DOWN: window_id = event->button.windowID; break;
         case SDL_EVENT_MOUSE_BUTTON_UP: window_id = event->button.windowID; break;
     }
-    if(window_id == SDL_GetWindowID(ctx->gui.add_efx_popup) && ctx->gui.adding_efx) {
+    if(ctx->gui.adding_efx && window_id == SDL_GetWindowID(ctx->gui.add_efx_popup) && ctx->gui.adding_efx) {
         process_popup_events(event, ctx);
     } else {
         process_gui_events(event, ctx);
@@ -272,9 +283,6 @@ void process_gui_events(SDL_Event *event, AppContext *ctx) {
             SDL_Point mouse_pos = {(int)event->motion.x, (int)event->motion.y};
             
             for(int i = 0; i < NUM_TOP_BUTTONS; i++) {
-                if(i == SAVE_IMAGE && !ctx->state.image_loaded) {
-                    continue;
-                }
                 handle_button_hover(mouse_pos, &ctx->gui.top_buttons[i]);
             }
 
@@ -413,8 +421,12 @@ void process_popup_events(SDL_Event *event, AppContext *ctx) {
 }
 
 void draw_text(SDL_Renderer *renderer, int x, int y, SDL_Color font_color, char *text) {
-    int w, h;
+    if(text == NULL) { return; }
+
+    int w = 0, h = 0;
     SDL_Texture *texture = get_cached_text(renderer, &w, &h, font_color, text);
+    if(texture == NULL) { return; }
+
     SDL_FRect rect = {x, y - 2, w, h};
     SDL_RenderTexture(renderer, texture, NULL, &rect);
 }
@@ -433,8 +445,9 @@ SDL_Texture *get_cached_text(SDL_Renderer *renderer, int *w, int *h, SDL_Color f
     }
 
     SDL_Surface *surface = TTF_RenderText_Blended(font, text, 0, font_color);
-    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if(surface == NULL) { return NULL; }
 
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
     int text_w = surface->w;
     int text_h = surface->h;
 
@@ -442,7 +455,7 @@ SDL_Texture *get_cached_text(SDL_Renderer *renderer, int *w, int *h, SDL_Color f
 
     if(num_cached_text < TEXT_CACHE_MAX) {
         CachedText *entry = &text_cache[num_cached_text++];
-        strcpy(entry->text, text);
+        entry->text = strdup(text);
         entry->w = text_w;
         entry->h = text_h;
         entry->color = font_color;

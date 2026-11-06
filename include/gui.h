@@ -22,6 +22,7 @@ typedef struct Button {
 typedef enum ButtonIDs {
     LOAD_IMAGE,
     SAVE_IMAGE,
+    SCALE_IMAGE,
     RESET_EFX,
     RANDOMIZE,
     EXIT,
