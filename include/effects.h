@@ -27,7 +27,6 @@ typedef enum {
 typedef struct Efx {
     EfxID id;
     char *name;
-    bool animate;
 
     int num_params;
     float params[4];

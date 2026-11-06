@@ -46,8 +46,8 @@ void *load_image(void *data) {
         return NULL;
     }
     
-    int why_channels;
-    image->original = stbi_load(image->path, &image->width, &image->height, &why_channels, 3);
+    int channels;
+    image->original = stbi_load(image->path, &image->width, &image->height, &channels, 3);
     if(image->original == NULL) {
         free(image->path);
         image->path = NULL;
@@ -55,6 +55,7 @@ void *load_image(void *data) {
     }
     image->org_w = image->width;
     image->org_h = image->height;
+    image->channels = channels;
 
     image->framebuffer_size = (image->width * image->height * 3);
     image->framebuffer = malloc(image->framebuffer_size);

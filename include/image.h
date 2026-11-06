@@ -13,6 +13,7 @@ typedef struct Image {
     char *path;
     int width;
     int height;
+    int channels;
 
     uint8_t *framebuffer;
     size_t framebuffer_size;
@@ -27,8 +28,13 @@ typedef struct Image {
     bool needs_reload;
 } Image;
 
+typedef struct ImageScaleData {
+    Image *image;
+    float multiplier;
+} ImageScaleData;
+
 int create_image_texture(SDLContext *sdl, Image *image);
 void recenter_image(AppContext *ctx, Image *image);
-void *scale_image(void *data); // button callback (data = Image *)
+void *scale_image_callback(void *data); // button callback (data = ImageScaleData*)
 
 #endif

@@ -8,9 +8,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#define STB_IMAGE_RESIZE_IMPLEMENTATION
-#include "stb_image_resize2.h"
-
 #include "image.h"
 #include "common.h"
 #include "utils.h"
@@ -21,9 +18,13 @@ void render(AppContext *ctx, Image *image);
 void process_events(AppContext *ctx, Image *image);
 
 int main(void) {
-    srand((unsigned int)time(NULL));
+    srand(time(NULL));
     AppContext ctx = {0};
     Image image = {0};
+    ImageScaleData image_scale_data = {
+        .image = &image,
+        .multiplier = 0.5f
+    };
 
     ctx.state.running = true;
     ctx.state.image_needs_update = false;
@@ -39,7 +40,7 @@ int main(void) {
         fprintf(stderr, "Failed to initialize SDL: %s\n", SDL_GetError());  
         goto exit;
     }
-    if(init_gui(&ctx, &image) != 0) {
+    if(init_gui(&ctx, &image, &image_scale_data) != 0) {
         fprintf(stderr, "Failed to initialize the GUI: %s\n", SDL_GetError());
         goto exit;
     }

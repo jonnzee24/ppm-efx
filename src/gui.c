@@ -38,7 +38,7 @@ void create_add_efx_popup(AppContext *ctx);
 void process_gui_events(SDL_Event *event, AppContext *ctx);
 void process_popup_events(SDL_Event *event, AppContext *ctx);
 
-int init_gui(AppContext *ctx, Image *image) {
+int init_gui(AppContext *ctx, Image *image, ImageScaleData *image_scale_data) {
     if(!TTF_Init()) {
         fprintf(stderr, "Failed to initialize SDL3_TTF: %s\n", SDL_GetError());
         return 1;
@@ -80,8 +80,8 @@ int init_gui(AppContext *ctx, Image *image) {
     ctx->gui.top_buttons[SAVE_IMAGE].data = image;
 
     ctx->gui.top_buttons[SCALE_IMAGE].text = "Scale Image";
-    ctx->gui.top_buttons[SCALE_IMAGE].on_click = randomize_efx; // temprary dummy callback before implementation of scale_image is done
-    ctx->gui.top_buttons[SCALE_IMAGE].data = image;
+    ctx->gui.top_buttons[SCALE_IMAGE].on_click = scale_image_callback;
+    ctx->gui.top_buttons[SCALE_IMAGE].data = image_scale_data;
 
     ctx->gui.top_buttons[RESET_EFX].text = "Reset";
     ctx->gui.top_buttons[RESET_EFX].on_click = reset_efx;
@@ -133,6 +133,17 @@ int init_gui(AppContext *ctx, Image *image) {
         efx_button_offset = i % 2 == 1? efx_button_offset + 40 : efx_button_offset;
     }
 
+    ctx->gui.scale_image_slider = (Slider){
+        .x = MARGIN_LEFT,
+        .y = (MARGIN_Y / 2) + ctx->sdl.image_vp.h + 5,
+        .w = 160,
+        .h = (MARGIN_Y / 2) - 10,
+        .text = "Scale Multiplier",
+        .hovered = false,
+        .sliding = false,
+        .data = &image_scale_data->multiplier
+    };
+
     return 0;
 }
 
@@ -144,6 +155,7 @@ void cleanup_gui(AppContext *ctx) {
 
     for(int i = 0; i < num_cached_text; i++) {
         SDL_DestroyTexture(text_cache[i].texture);
+        free(text_cache[i].text);
     }
 
     if(ctx->gui.add_efx_popup_renderer) {
@@ -212,8 +224,10 @@ void *change_mode_3(void *data) {
 void render_gui(AppContext *ctx, Image *image) {
     if(image->loaded) {
         ctx->gui.top_buttons[SAVE_IMAGE].disabled = false;
+        ctx->gui.top_buttons[SCALE_IMAGE].disabled = false;
     } else {
         ctx->gui.top_buttons[SAVE_IMAGE].disabled = true;
+        ctx->gui.top_buttons[SCALE_IMAGE].disabled = true;
     }
     for(int i = 0; i < NUM_TOP_BUTTONS; i++) {
         draw_button(ctx->sdl.renderer, &ctx->gui.top_buttons[i]);
@@ -250,6 +264,8 @@ void render_gui(AppContext *ctx, Image *image) {
 
         SDL_RenderPresent(ctx->gui.add_efx_popup_renderer);
     }
+    ctx->gui.scale_image_slider.y = (MARGIN_Y / 2) + ctx->sdl.image_vp.h + 5;
+    draw_slider(ctx->sdl.renderer, &ctx->gui.scale_image_slider);
 }
 
 bool point_in_rect(SDL_Point point, int x, int y, int w, int h) {
@@ -258,6 +274,7 @@ bool point_in_rect(SDL_Point point, int x, int y, int w, int h) {
 }
 
 void handle_button_hover(SDL_Point mouse_pos, Button *button) {
+    if(button->disabled) { return; }
     if(point_in_rect(mouse_pos, button->x, button->y, button->w, button->h)) {
         button->hovered = true;
     } else { button->hovered = false; }
@@ -324,6 +341,17 @@ void process_gui_events(SDL_Event *event, AppContext *ctx) {
                 }
             }
 
+            Slider *slider = &ctx->gui.scale_image_slider;
+            if(point_in_rect(mouse_pos, slider->x, slider->y, slider->w, slider->h)) {
+                slider->hovered = true;
+            } else { slider->hovered = false; }
+            if(slider->sliding) {
+                float *slider_val = (float *)slider->data;
+                *slider_val += event->motion.xrel * 0.005f;
+                *slider_val = clampf(*slider_val, 0.0f, 1.0f);
+                ctx->state.image_needs_update = true;
+            }
+
             handle_button_hover(mouse_pos, &ctx->gui.add_efx_button); 
             break;
         }
@@ -364,6 +392,11 @@ void process_gui_events(SDL_Event *event, AppContext *ctx) {
                         card->dragging = true;
                     }
                 }
+
+                Slider *slider = &ctx->gui.scale_image_slider;
+                if(slider->hovered) {
+                    slider->sliding = true;
+                }
             }
             break;
         }
@@ -389,6 +422,11 @@ void process_gui_events(SDL_Event *event, AppContext *ctx) {
                            }
                         }
                     }
+                }
+
+                Slider *slider = &ctx->gui.scale_image_slider;
+                if(slider->sliding) {
+                    slider->sliding = false;
                 }
             }
             break;

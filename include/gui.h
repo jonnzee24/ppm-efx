@@ -8,6 +8,7 @@
 
 typedef struct AppContext AppContext;
 typedef struct Image Image;
+typedef struct ImageScaleData ImageScaleData;
 
 typedef struct Button {
     int x, y, w, h;
@@ -65,9 +66,11 @@ typedef struct GuiContext {
     SDL_Window *add_efx_popup;
     SDL_Renderer *add_efx_popup_renderer;
     bool adding_efx;
+    bool scaling_image;
+    Slider scale_image_slider;
 } GuiContext;
 
-int init_gui(AppContext *ctx, Image *image);
+int init_gui(AppContext *ctx, Image *image, ImageScaleData *image_scale_data);
 void cleanup_gui(AppContext *ctx);
 void render_gui(AppContext *ctx, Image *image);
 void deal_gui_events(SDL_Event *event, AppContext *ctx);
